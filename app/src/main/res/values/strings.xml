@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sonora</string>
+    <string name="channel_name">Sonora im Hintergrund</string>
+    <string name="channel_description">Hält den Klang aktiv, solange du hörst.</string>
+    <string name="notification_title">Sonora ist aktiv</string>
+    <string name="notification_text">Klang und Umgebungsanpassung laufen auf dem Gerät.</string>
+</resources>
