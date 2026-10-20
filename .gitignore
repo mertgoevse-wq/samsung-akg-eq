@@ -1,0 +1,22 @@
+# Gradle
+.gradle/
+build/
+local.properties
+
+# Android
+*.apk
+*.aab
+*.ap_
+*.dex
+captures/
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Keys / secrets — nie committen
+*.keystore
+*.jks
+keystore.properties
+local.defaults.properties
