@@ -31,7 +31,7 @@ Sonora ersetzt die feste Samsung-Abstimmung durch einen Equalizer, den du selbst
 
 Ohne Root darf eine App den globalen Audio-Mix nur steuern, wenn One UI es zulässt. Sonora prüft das beim Start und zeigt das Ergebnis unter **Jetzt → Systemausgang** und in **Mehr → Diagnose**:
 
-- **„Klangänderung angefordert"** — der Equalizer ist aktiv.
+- **„Klangänderung angefordert"** — Android hat die Effektkontrolle freigegeben.
 - **„Gerät erlaubt keine Steuerung des Systemausgangs"** — Android verweigert den Zugriff. Die App speichert deine Kurve weiterhin, kann sie aber nicht anwenden. Es gibt keinen stillen Workaround; genau das zu verschweigen wäre der Fehler.
 
 Raumklang hängt zusätzlich davon ab, ob das Gerät `Virtualizer` und `EnvironmentalReverb` bereitstellt. Mittenfokus und Dynamikkontrolle werden von Android nicht als getrennte Effekte angeboten und deshalb auch nicht behauptet.
