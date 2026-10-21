@@ -28,4 +28,14 @@ class MainActivity : ComponentActivity() {
             Intent(this, SonoraService::class.java)
         )
     }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.onAppResumed()
+    }
+
+    override fun onStop() {
+        viewModel.onActivityStopped()
+        super.onStop()
+    }
 }

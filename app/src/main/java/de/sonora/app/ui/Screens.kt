@@ -7,13 +7,19 @@ import android.content.pm.PackageManager
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.net.Uri
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.LocalClipboardManager
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +30,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,6 +43,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -53,7 +61,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -64,9 +77,12 @@ import de.sonora.app.SonoraUiState
 import de.sonora.app.SonoraViewModel
 import de.sonora.app.audio.EngineStatus
 import de.sonora.app.audio.SonoraEngine
+import de.sonora.app.core.BandCount
+import de.sonora.app.core.bandFrequencies
 import de.sonora.app.data.Presets
 import de.sonora.app.data.SoundProfile
 import java.util.Locale
+import kotlin.math.abs
 
 // ---------------------------------------------------------------- Bausteine
 
@@ -104,13 +120,16 @@ private fun DiagnosticRow(label: String, value: String) {
 private fun hasPermission(context: Context, permission: String): Boolean =
     ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
-private fun hasUsbHeadset(context: Context): Boolean {
-    val manager = context.getSystemService(AudioManager::class.java) ?: return false
-    return manager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any { device ->
-        device.type == AudioDeviceInfo.TYPE_USB_HEADSET ||
-            device.type == AudioDeviceInfo.TYPE_USB_DEVICE
+private fun connectedUsbOutputs(context: Context): List<AudioDeviceInfo> {
+    val manager = context.getSystemService(AudioManager::class.java) ?: return emptyList()
+    return manager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).filter { device ->
+        device.type == AudioDeviceInfo.TYPE_USB_HEADSET || device.type == AudioDeviceInfo.TYPE_USB_DEVICE
     }
 }
+
+private fun identifiedEoIc100(device: AudioDeviceInfo): Boolean =
+    listOfNotNull(device.productName?.toString(), device.address)
+        .any { it.contains("EO-IC100", ignoreCase = true) }
 
 private fun environmentLabel(level: Int?): String = when (level) {
     0 -> "leise"
@@ -127,6 +146,18 @@ private fun engineStatusText(status: EngineStatus): String = when (status) {
 
 private fun frequencyLabel(hz: Int): String = if (hz >= 1000) "${hz / 1000}k" else hz.toString()
 
+private fun bandLabels(count: BandCount): List<String> {
+    val frequencies = bandFrequencies(count)
+    if (count == BandCount.TEN) return frequencies.map(::frequencyLabel)
+
+    val labels = MutableList(frequencies.size) { "" }
+    listOf(63, 250, 1_000, 4_000, 16_000).forEach { anchor ->
+        val nearest = frequencies.indices.minByOrNull { index -> abs(frequencies[index] - anchor) }
+        if (nearest != null) labels[nearest] = frequencyLabel(anchor)
+    }
+    return labels
+}
+
 // ---------------------------------------------------------------- Onboarding
 
 @Composable
@@ -142,7 +173,9 @@ fun OnboardingScreen(vm: SonoraViewModel) {
                 hasPermission(context, Manifest.permission.POST_NOTIFICATIONS)
         )
     }
-    val usbConnected = remember { hasUsbHeadset(context) }
+    val usbDevices = remember { connectedUsbOutputs(context) }
+    val eoIc100Connected = usbDevices.any(::identifiedEoIc100)
+    val usbConnected = usbDevices.isNotEmpty()
     val micLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted -> micGranted = granted }
@@ -208,19 +241,19 @@ fun OnboardingScreen(vm: SonoraViewModel) {
                 Spacer(Modifier.height(14.dp))
                 SectionCard {
                     Text(
-                        text = if (usbConnected) {
-                            "Samsung EO-IC100 erkannt"
-                        } else {
-                            "Kein USB-Hörer erkannt"
+                        text = when {
+                            eoIc100Connected -> "Samsung EO-IC100 erkannt"
+                            usbConnected -> "USB-Hörer angeschlossen"
+                            else -> "Kein USB-Hörer erkannt"
                         },
                         style = MaterialTheme.typography.titleMedium
                     )
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        text = if (usbConnected) {
-                            "Der Hörer ist angeschlossen. Du kannst direkt starten."
-                        } else {
-                            "Stecke den Hörer ein, wenn du möchtest. Sonora läuft auch mit anderen Ausgängen; die Abstimmung ist dann weniger genau."
+                        text = when {
+                            eoIc100Connected -> "Der EO-IC100 ist angeschlossen. Du kannst direkt starten."
+                            usbConnected -> "Ein USB-Hörer ist angeschlossen. Sein Modell lässt sich über Android nicht sicher bestimmen; du kannst Sonora trotzdem nutzen."
+                            else -> "Stecke den Hörer ein, wenn du möchtest. Sonora läuft auch mit anderen Ausgängen; die Abstimmung ist dann weniger genau."
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = Muted
@@ -335,6 +368,43 @@ fun HomeScreen(vm: SonoraViewModel) {
         item { ActiveProfileCard(state) }
         item { EnvironmentCard(state, vm::setAutoAdjust) }
         item { EngineCard(state, vm::retryEngine) }
+        if (state.nowPlaying != null) {
+            item {
+                SectionCard {
+                    Text("Aktiver Inhalt", style = MaterialTheme.typography.titleMedium)
+                    Text(state.nowPlaying.appLabel, style = MaterialTheme.typography.bodyLarge)
+                    state.nowPlaying.title?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Muted) }
+                }
+            }
+        }
+        if (state.volumeState.reminderDue) {
+            item {
+                SectionCard {
+                    Text("Hörschutz", style = MaterialTheme.typography.titleMedium)
+                    Text("Du hörst seit ${state.volumeState.minutesLoud} Minuten sehr laut. Sonora senkt die Lautstärke nicht von allein — du entscheidest.", style = MaterialTheme.typography.bodyMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = vm::acknowledgeVolumeReminder, modifier = Modifier.heightIn(min = 48.dp)) { Text("Verstanden") }
+                        OutlinedButton(onClick = { vm.setVolumeReminderEnabled(false) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Erinnerung aus") }
+                    }
+                }
+            }
+        }
+        item {
+            SectionCard {
+                Text("Hörtest", style = MaterialTheme.typography.titleMedium)
+                Text("Zehn verglichene Durchläufe liefern deinen persönlichen Klangwert.", style = MaterialTheme.typography.bodySmall, color = Muted)
+                Button(onClick = vm::startBlindTest, modifier = Modifier.heightIn(min = 48.dp)) { Text("Verblindeten Test starten") }
+            }
+        }
+        item {
+            SectionCard {
+                Text("Persönliches Profil", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(4.dp))
+                Text("Acht kurze Fragen, Ergebnis sofort hörbar.", style = MaterialTheme.typography.bodySmall, color = Muted)
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = vm::startInterview, modifier = Modifier.heightIn(min = 48.dp)) { Text("Loslegen") }
+            }
+        }
         item {
             Column {
                 Text("Schnellzugriff", style = MaterialTheme.typography.titleMedium)
@@ -448,7 +518,7 @@ private fun EngineCard(state: SonoraUiState, onRetry: () -> Unit) {
                 Text("Klangänderung angefordert", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Das Gerät stellt ${status.bands} Effektbänder bereit. Sonora bildet die zehn Regler darauf ab.",
+                    text = "Das Gerät stellt ${status.bands} Effektbänder bereit. Sonora bildet ${state.bandCount.size} Regler darauf ab.",
                     style = MaterialTheme.typography.bodySmall,
                     color = Muted
                 )
@@ -499,6 +569,8 @@ private fun QuickPresets(vm: SonoraViewModel) {
 @Composable
 fun EqualizerScreen(vm: SonoraViewModel) {
     val state = vm.uiState
+    val frequencies = remember(state.bandCount) { bandFrequencies(state.bandCount) }
+    val labels = remember(state.bandCount) { bandLabels(state.bandCount) }
     var showSave by remember { mutableStateOf(false) }
 
     if (showSave) {
@@ -524,18 +596,58 @@ fun EqualizerScreen(vm: SonoraViewModel) {
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Zehn Regler, −12 bis +12 dB.",
+                    text = "${state.bandCount.size} Regler, −12 bis +12 dB.",
                     style = MaterialTheme.typography.bodySmall,
                     color = Muted
                 )
             }
         }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                BandCount.entries.forEach { count ->
+                    FilterChip(
+                        selected = state.bandCount == count,
+                        onClick = { vm.setBandCount(count) },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                        label = { Text(if (count == BandCount.SIXTY_FOUR) "64+" else count.size.toString()) }
+                    )
+                }
+            }
+        }
         item { QuickPresets(vm) }
         item { MappingNote(state) }
-        items(10) { index ->
+        item {
+            Column {
+                Text("Vorverstärkung", style = MaterialTheme.typography.titleSmall)
+                Slider(
+                    value = state.preampDb,
+                    onValueChange = vm::setPreamp,
+                    valueRange = -12f..12f,
+                    steps = 47,
+                    modifier = Modifier.semantics {
+                        contentDescription = "Vorverstärkung, ${String.format(Locale.GERMAN, "%.1f", state.preampDb)} Dezibel"
+                    }
+                )
+                Text(
+                    text = String.format(Locale.GERMAN, "%+.1f dB", state.preampDb),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Muted
+                )
+                if (state.clipWarning) {
+                    Text(
+                        text = "Die Anhebung übersteigt das Limit. Sonora hat sie zurückgenommen, damit es nicht clippt.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Warning
+                    )
+                }
+            }
+        }
+        items(state.eqCurve.levelsDb.size) { index ->
             BandRow(
+                hz = frequencies[index],
                 index = index,
-                value = state.levelsDb.getOrElse(index) { 0f },
+                label = labels[index],
+                value = state.eqCurve.levelsDb[index],
                 onChange = vm::setBand
             )
         }
@@ -569,7 +681,7 @@ private fun MappingNote(state: SonoraUiState) {
     val bands = (state.engineStatus as? EngineStatus.Active)?.bands
     Text(
         text = if (bands != null) {
-            "Dein Gerät stellt $bands Bänder bereit. Die zehn Regler werden auf die nächsten Bänder abgebildet."
+            "Dein Gerät stellt $bands Bänder bereit. Die ${state.bandCount.size} Regler werden auf die nächsten Bänder abgebildet."
         } else {
             "Der Systemausgang ist nicht verfügbar. Die Kurve wird gespeichert, aber nicht angewendet."
         },
@@ -579,10 +691,10 @@ private fun MappingNote(state: SonoraUiState) {
 }
 
 @Composable
-private fun BandRow(index: Int, value: Float, onChange: (Int, Float) -> Unit) {
+private fun BandRow(index: Int, hz: Int, label: String, value: Float, onChange: (Int, Float) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
-            text = frequencyLabel(SonoraEngine.uiFrequencies[index]),
+            text = label,
             modifier = Modifier.width(48.dp),
             style = MaterialTheme.typography.labelMedium,
             color = Muted
@@ -592,7 +704,9 @@ private fun BandRow(index: Int, value: Float, onChange: (Int, Float) -> Unit) {
             onValueChange = { newValue -> onChange(index, newValue) },
             valueRange = -12f..12f,
             steps = 47,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f).semantics {
+                contentDescription = "$hz Hz, ${String.format(Locale.GERMAN, "%.1f", value)} Dezibel"
+            }
         )
         Text(
             text = String.format(Locale.GERMAN, "%+.1f dB", value),
@@ -605,6 +719,7 @@ private fun BandRow(index: Int, value: Float, onChange: (Int, Float) -> Unit) {
 
 @Composable
 private fun AbCompare(vm: SonoraViewModel) {
+    val state = vm.uiState
     var pressed by remember { mutableStateOf(false) }
     SectionCard {
         Text("A/B", style = MaterialTheme.typography.labelMedium, color = Muted)
@@ -621,17 +736,34 @@ private fun AbCompare(vm: SonoraViewModel) {
             shape = RoundedCornerShape(14.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onPress = {
-                            pressed = true
-                            vm.beginBypass()
-                            tryAwaitRelease()
+                .heightIn(min = 56.dp)
+                .clickable(
+                    enabled = state.masterEnabled && !state.blindTestActive,
+                    role = Role.Button,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = { vm.beginBypass(); vm.endBypass() }
+                )
+                .pointerInput(state.masterEnabled, state.blindTestActive) {
+                    awaitEachGesture {
+                        if (!state.masterEnabled || state.blindTestActive) return@awaitEachGesture
+                        awaitFirstDown(pass = PointerEventPass.Initial)
+                        if (!state.masterEnabled || state.blindTestActive) return@awaitEachGesture
+                        pressed = true
+                        vm.beginBypass()
+                        try {
+                            do {
+                                val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                            } while (event.changes.any { it.pressed })
+                        } finally {
                             vm.endBypass()
                             pressed = false
                         }
-                    )
+                    }
+                }
+                .semantics(mergeDescendants = true) {
+                    contentDescription = if (pressed) "Originalklang aktiv" else if (state.bypassActive) "Originalklang aktiv" else "Zum Originalklang wechseln"
+                    if (!state.masterEnabled || state.blindTestActive) disabled()
                 }
         ) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -675,7 +807,42 @@ private fun SaveProfileDialog(onDismiss: () -> Unit, onSave: (String) -> Unit) {
 @Composable
 fun ProfilesScreen(vm: SonoraViewModel) {
     val state = vm.uiState
+    val clipboard = LocalClipboardManager.current
     var showSave by remember { mutableStateOf(false) }
+    var showImport by remember { mutableStateOf(false) }
+    var importText by remember { mutableStateOf("") }
+    var importError by remember { mutableStateOf<String?>(null) }
+
+    if (showImport) {
+        AlertDialog(
+            onDismissRequest = { showImport = false; importError = null },
+            title = { Text("Profil importieren") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = importText,
+                        onValueChange = { importText = it; importError = null },
+                        label = { Text("Profil-JSON") },
+                        minLines = 4,
+                        maxLines = 8
+                    )
+                    importError?.let { Text(it, color = Warning, style = MaterialTheme.typography.bodySmall) }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (vm.importProfile(importText)) {
+                        showImport = false
+                        importText = ""
+                        importError = null
+                    } else {
+                        importError = vm.uiState.message
+                    }
+                }, enabled = importText.isNotBlank()) { Text("Importieren") }
+            },
+            dismissButton = { TextButton(onClick = { showImport = false }) { Text("Abbrechen") } }
+        )
+    }
 
     if (showSave) {
         SaveProfileDialog(
@@ -706,7 +873,26 @@ fun ProfilesScreen(vm: SonoraViewModel) {
                         color = Muted
                     )
                 }
-                Button(onClick = { showSave = true }) { Text("Sichern") }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(onClick = { showImport = true }, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text("Importieren")
+                    }
+                    Button(onClick = { showSave = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Sichern") }
+                }
+            }
+        }
+        item {
+            SectionCard {
+                Text("Hörtest", style = MaterialTheme.typography.titleMedium)
+                Text("Vergleiche zehn Durchläufe und notiere deine Bewertung.", style = MaterialTheme.typography.bodySmall, color = Muted)
+                Button(onClick = vm::startBlindTest, modifier = Modifier.heightIn(min = 48.dp)) { Text("Verblindeten Test starten") }
+            }
+        }
+        item {
+            SectionCard {
+                Text("Dein Klangprofil", style = MaterialTheme.typography.titleMedium)
+                Text("Acht kurze Fragen, Ergebnis sofort hörbar.", style = MaterialTheme.typography.bodySmall, color = Muted)
+                Button(onClick = vm::startInterview, modifier = Modifier.heightIn(min = 48.dp)) { Text("Persönliches Profil erstellen") }
             }
         }
         items(items = state.profiles, key = { it.id }) { profile ->
@@ -714,12 +900,15 @@ fun ProfilesScreen(vm: SonoraViewModel) {
                 profile = profile,
                 active = profile.id == state.activeProfileId,
                 onApply = { vm.selectProfile(profile.id) },
-                onDelete = { vm.deleteProfile(profile.id) }
+                onDelete = { vm.deleteProfile(profile.id) },
+                onExport = {
+                    vm.exportProfile(profile.id)?.let { clipboard.setText(AnnotatedString(it)) }
+                }
             )
         }
         item {
             Text(
-                text = "Umbenennen, Duplizieren und Export folgen in Phase 2. Presets sind als „von Sonora“ markiert.",
+                text = "Umbenennen und Duplizieren folgen später. Eigene Profile kannst du als JSON exportieren und wieder importieren. Presets sind als „von Sonora“ markiert.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Muted
             )
@@ -732,7 +921,8 @@ private fun ProfileRow(
     profile: SoundProfile,
     active: Boolean,
     onApply: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onExport: () -> Unit
 ) {
     SectionCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -753,8 +943,11 @@ private fun ProfileRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End
         ) {
-            TextButton(onClick = onApply, enabled = !active) {
+            TextButton(onClick = onApply, enabled = !active, modifier = Modifier.heightIn(min = 48.dp)) {
                 Text(if (active) "Aktiv" else "Anwenden")
+            }
+            if (profile.preset == null) {
+                TextButton(onClick = onExport, modifier = Modifier.heightIn(min = 48.dp)) { Text("Exportieren") }
             }
             if (profile.id != "flat") {
                 TextButton(onClick = onDelete) { Text("Löschen") }
@@ -827,7 +1020,7 @@ fun SettingsScreen(vm: SonoraViewModel) {
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Profile liegen lokal auf dem Gerät. Ein Export ist in Phase 2 vorgesehen.",
+                    text = "Profile liegen lokal auf dem Gerät. Export und Import verwenden versioniertes JSON; teilen musst du es selbst.",
                     style = MaterialTheme.typography.bodySmall,
                     color = Muted
                 )
@@ -864,6 +1057,52 @@ fun SettingsScreen(vm: SonoraViewModel) {
                     Spacer(Modifier.height(4.dp))
                     TextButton(onClick = vm::retryEngine) { Text("Erneut prüfen") }
                 }
+                Spacer(Modifier.height(8.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                Text("Ereignisse (lokal): ${state.diagnosticEvents.size}", style = MaterialTheme.typography.titleSmall)
+                state.diagnosticEvents.takeLast(10).asReversed().forEach { event ->
+                    DiagnosticRow(event.name, java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT, Locale.GERMAN).format(java.util.Date(event.timestampMs)))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = vm::clearDiagnosticEvents, modifier = Modifier.heightIn(min = 48.dp)) { Text("Protokoll leeren") }
+                    TextButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+                            clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("Sonora-Diagnose", vm.diagnosticReport()))
+                            vm.clearMessage()
+                        },
+                        modifier = Modifier.heightIn(min = 48.dp)
+                    ) { Text("Bericht kopieren") }
+                }
+            }
+        }
+        item {
+            SectionCard {
+                Text("Inhaltserkennung", style = MaterialTheme.typography.titleMedium)
+                Text("Optional: Sonora liest App und Titel, niemals den Ton. Dafür brauchst du die Android-Freigabe für den Benachrichtigungszugriff; die Daten bleiben auf dem Gerät.", style = MaterialTheme.typography.bodySmall, color = Muted)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Erkennen, was läuft", modifier = Modifier.weight(1f))
+                    Switch(checked = state.mediaEnabled, onCheckedChange = vm::setMediaEnabled)
+                }
+                if (!vm.mediaPermissionStatus().granted) {
+                    Text("Freigabe fehlt. Ohne sie bleibt das aktuelle Profil aktiv.", style = MaterialTheme.typography.bodySmall, color = Warning)
+                    TextButton(
+                        onClick = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
+                        modifier = Modifier.heightIn(min = 48.dp)
+                    ) { Text("In den Systemeinstellungen aktivieren") }
+                }
+            }
+        }
+        item {
+            SectionCard {
+                Text("Hörschutz", style = MaterialTheme.typography.titleMedium)
+                Text("Erinnert nach einer Stunde bei hoher Medienlautstärke während tatsächlicher Wiedergabe. Androids Lautstärkestufen entsprechen keinem verlässlichen Schalldruckwert.", style = MaterialTheme.typography.bodySmall, color = Muted)
+                Text("Sonora ändert die Lautstärke nie selbst.", style = MaterialTheme.typography.bodySmall, color = Muted)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Lautstärke-Erinnerung", modifier = Modifier.weight(1f))
+                    Switch(checked = state.volumeReminderEnabled, onCheckedChange = vm::setVolumeReminderEnabled)
+                }
             }
         }
         item {
@@ -884,7 +1123,7 @@ fun SettingsScreen(vm: SonoraViewModel) {
         }
         item {
             Text(
-                text = "Sonora sendet nichts, solange du keine Verbindung einschaltest. Diese Version nutzt kein Netzwerk.",
+                text = "Sonora sendet nichts. Diese Version enthält keine Kontoverbindung und nutzt kein Netzwerk.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Muted
             )

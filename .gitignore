@@ -20,3 +20,7 @@ captures/
 *.jks
 keystore.properties
 local.defaults.properties
+
+# Lokale Build-/Arbeitsartefakte
+.kotlin/
+Eigene Dateien/
