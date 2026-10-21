@@ -24,6 +24,7 @@ import de.sonora.app.SonoraViewModel
 enum class SonoraTab(val label: String, val symbol: String) {
     Now("Jetzt", "◉"),
     Sound("Klang", "≋"),
+    Spatial("Raum", "◈"),
     Profiles("Profile", "▤"),
     Settings("Mehr", "⚙")
 }
@@ -33,6 +34,29 @@ fun SonoraRoot(vm: SonoraViewModel) {
     val state = vm.uiState
     if (!state.onboardingDone) {
         OnboardingScreen(vm)
+        return
+    }
+    if (state.interviewActive) {
+        InterviewScreen(vm)
+        return
+    }
+    if (state.blindTestActive) {
+        BlindTestScreen(
+            round = state.blindTestRound,
+            ratingA = state.blindTestRatingA,
+            ratingB = state.blindTestRatingB,
+            ready = state.blindTestReady,
+            sonoraAverage = vm.blindTestAverage(),
+            originalAverage = vm.blindTestOriginalAverage(),
+            feedbackSaved = state.blindTestFeedbackSaved,
+            message = state.blindTestMessage,
+            onPresent = vm::presentBlindTestRound,
+            onRatingAChange = vm::updateBlindTestRatingA,
+            onRatingBChange = vm::updateBlindTestRatingB,
+            onRate = vm::rateBlindTest,
+            onFinish = vm::finishBlindTest,
+            onCancel = vm::cancelBlindTest
+        )
         return
     }
 
@@ -67,6 +91,7 @@ fun SonoraRoot(vm: SonoraViewModel) {
             when (selectedTab) {
                 SonoraTab.Now.name -> HomeScreen(vm)
                 SonoraTab.Sound.name -> EqualizerScreen(vm)
+                SonoraTab.Spatial.name -> SpatialScreen(vm)
                 SonoraTab.Profiles.name -> ProfilesScreen(vm)
                 else -> SettingsScreen(vm)
             }

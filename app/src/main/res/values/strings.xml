@@ -5,4 +5,5 @@
     <string name="channel_description">Hält den Klang aktiv, solange du hörst.</string>
     <string name="notification_title">Sonora ist aktiv</string>
     <string name="notification_text">Klang und Umgebungsanpassung laufen auf dem Gerät.</string>
+    <string name="media_listener_label">Sonora liest nur App und Titel</string>
 </resources>
