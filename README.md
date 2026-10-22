@@ -161,4 +161,4 @@ Die Konfiguration ist bewusst konservativ (`gradle.properties`: ein Worker, kein
 
 ## Lizenz
 
-Noch nicht festgelegt. Bis eine Lizenz im Repository liegt, sind alle Rechte vorbehalten.
+Lizenziert unter der [MIT-Lizenz](LICENSE).
