@@ -14,7 +14,12 @@ data class StoredProfile(
     val levelsDb: List<Float> = emptyList(),
     val bandCount: String = "10",
     val preset: String? = null,
-    val createdAt: Long = 0L
+    val createdAt: Long = 0L,
+    val preampDb: Float = 0f,
+    val origin: String? = null,
+    val uncertainty: String? = null,
+    val boundaryLimits: String? = null,
+    val updatedAt: Long = 0L
 ) {
     fun bandCountEnum(): BandCount = parseBandCount(bandCount)
 }
@@ -73,7 +78,19 @@ object ProfileSchema {
                     schemaVersion = 1,
                     activeProfileId = legacy.activeProfileId,
                     profiles = legacy.profiles.map { old ->
-                        StoredProfile(old.id, old.name, old.levels, "10", old.preset, old.createdAt)
+                        StoredProfile(
+                            id = old.id,
+                            name = old.name,
+                            levelsDb = old.levels,
+                            bandCount = "10",
+                            preset = old.preset,
+                            createdAt = old.createdAt,
+                            preampDb = 0f,
+                            origin = "Migriert aus Schema v1",
+                            uncertainty = "Legacy-Format ohne Metadaten",
+                            boundaryLimits = "Standardbereich ±12 dB",
+                            updatedAt = System.currentTimeMillis()
+                        )
                     }
                 )
             }
@@ -94,7 +111,8 @@ object ProfileSchema {
                 profile.copy(
                     name = profile.name.trim().take(60).ifBlank { "Mein Profil" },
                     levelsDb = EqCurve(profile.bandCountEnum(), profile.levelsDb).normalized().levelsDb,
-                    bandCount = profile.bandCount.ifBlank { "10" }
+                    bandCount = profile.bandCount.ifBlank { "10" },
+                    updatedAt = System.currentTimeMillis()
                 )
             }
         )
@@ -117,6 +135,9 @@ object ProfileSchema {
         }
         if (imported.levelsDb.any { !it.isFinite() || it !in EqModel.MIN_DB..EqModel.MAX_DB }) {
             return ProfileValidation(null, "Klangwerte müssen zwischen −12 und +12 dB liegen.")
+        }
+        if (imported.preampDb.isNaN() || imported.preampDb.isInfinite() || imported.preampDb !in -12f..12f) {
+            return ProfileValidation(null, "Vorverstärkung muss zwischen −12 und +12 dB liegen.")
         }
         return ProfileValidation(imported.copy(name = name, id = "imported"), null)
     }

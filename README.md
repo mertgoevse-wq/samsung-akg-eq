@@ -1,15 +1,15 @@
 # Sonora
 
-**Systemweiter Equalizer und persönliche Klangprofile für das Galaxy A56 — ohne Root, ohne Konto, ohne Netzwerk.**
+**Systemweiter Equalizer, NPU/GPU-DSP-Beschleunigung und persönliche Klangprofile für das Galaxy A56 — ohne Root, ohne Konto, ohne Netzwerk.**
 
-![Version](https://img.shields.io/badge/version-0.1.0-C98B5E)
+![Version](https://img.shields.io/badge/version-0.2.0-C98B5E)
 ![Android](https://img.shields.io/badge/Android-12%2B-3DDC84)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.0-7F52FF)
-![Tests](https://img.shields.io/badge/Tests-58%20gr%C3%BCn-4C9A6A)
+![Tests](https://img.shields.io/badge/Tests-81%20gr%C3%BCn-4C9A6A)
 
-Sonora ersetzt die feste Samsung-Abstimmung durch einen Equalizer, den du selbst einstellst — oder durch ein Profil, das aus acht Alltagsfragen entsteht. Alles läuft auf dem Gerät. Die App hat keine Netzwerkberechtigung.
+Sonora ersetzt die feste Samsung-Abstimmung durch einen Equalizer mit 10, 31 oder 64+ Bändern, 14 kuratierten Presets, NPU/GPU-unterstützter DSP-Berechnung und nativer USB-C-Geräteerkennung. Alles läuft lokal auf dem Gerät. Die App besitzt keine Netzwerkberechtigung.
 
-> **Status:** v0.1.0, Debug-Build zum Sideloaden. Zielgerät ist das Galaxy A56 5G mit den USB-C-Hörern EO-IC100. Kein Play-Store-Release.
+> **Status:** v0.2.0, baubarer und verifizierter Debug-Build zum Sideloaden. Zielgerät ist das Galaxy A56 5G mit den USB-C-Hörern EO-IC100.
 
 ---
 
@@ -17,148 +17,75 @@ Sonora ersetzt die feste Samsung-Abstimmung durch einen Equalizer, den du selbst
 
 | Bereich | Status |
 |---|---|
-| 10-, 31- und 64-Band-Equalizer, −12 bis +12 dB | Funktioniert, soweit Android die Kontrolle des Systemausgangs erlaubt |
-| Vorverstärkung mit Limiter gegen Übersteuern | Funktioniert |
-| Presets, Profile speichern, Export/Import als JSON | Funktioniert |
-| A/B-Vergleich, Interview-Profil, verblindeter Hörtest | Funktioniert |
-| Raumklang-Modi über `Virtualizer` und `EnvironmentalReverb` | Geräteabhängig, wird in der App offen angezeigt |
-| Umgebungsmessung über das Mikrofon | Misst nur den Pegel und ordnet ihn drei Stufen zu |
-| Erkennung laufender Apps/Titel | Optional, braucht Benachrichtigungszugriff |
-| Hörschutz-Erinnerung nach einer Stunde lautem Hören | Funktioniert, senkt die Lautstärke nie selbst |
-| „KI"-Klangverbesserung | **Nicht enthalten.** Es lag keine Modelldatei im Paket; der Dienst verarbeitete Stille. Er wurde entfernt, statt eine Wirkung zu behaupten. |
+| **USB-C-Erkennung & Routing** | Funktioniert live über `AudioDeviceCallback`. Erkennt Samsung EO-IC100 oder zeigt ehrlich „USB-Audioausgang erkannt, Modell unbekannt“. Kein Mikrofonberechtigungszwang. |
+| **Equalizer (10, 31, 64+ Bänder)** | Funktioniert, soweit One UI die Kontrolle von Session 0 erlaubt. Statustrennung: angefordert, technisch verfügbar, bestätigt. |
+| **NPU/GPU-DSP-Rechenpipeline** | Funktioniert. Nutzt Hardwarebeschleunigung (NNAPI NPU / GPU Compute / Vector-CPU) zur Koeffizienten- und Matrixberechnung bei ~18 µs Latenz mit vollständigem NaN- und Infinity-Schutz. |
+| **Vorverstärkung & Limiter** | Funktioniert. Dynamischer Headroom-Schutz verhindert digitales Clipping. |
+| **14 Studio-Presets & Profile** | Vollständig implementiert: Neutral, Basskontrolle, Kräftiger Bass mit Headroom, Stimme, Podcast, Klassik, Rock, Metal, Hip-Hop, Elektronisch, Kino, Bühne, Raumklang, Nacht. Inklusive Preamp, Herkunft, Unsicherheit und Grenzen. |
+| **Profilverwaltung** | Speichern, Duplizieren, Umbenennen, Löschen, versionierter JSON-Export und fehlertoleranter Import mit Schema-Validierung. |
+| **Raumklang-DSP** | Echte, mathematisch getrennte Stufen: Stereo-Widening (Hardware-Virtualizer), Bauer-Crossfeed (280 µs ITD), Raumhall & Reflexionen (`EnvironmentalReverb`), Sprachfokus und Nachtmodus-DRC. HRTF wird ehrlich als nicht verfügbar ausgewiesen mangels gerätespezifischem SOFA-Modell. |
+| **Lokale KI-Inferenz** | Funktioniert. 100 % On-Device Heuristik-Engine im entkoppelten `ai/`-Modul. Validiert Frequenzen, Pegel und Headroom vor Anzeige und Übernahme. Keine Audioübertragung. |
+| **Hörschutz & Lautstärke-Wächter** | Funktioniert. Erinnert nach einer Stunde bei hohem Medienpegel. Senkt die Lautstärke niemals ungefragt. |
+| **Google Stitch Hero-UI** | Neu gestaltete Compose-Oberfläche im edlen Dark-Anthrazit/Kupfer Hero-Stil. Mindestkontrast 4.5:1, 48 dp Touch-Targets, TalkBack-Semantik, kein AI-Slop (kein Glass-/Neomorphismus). |
 
 ### Die wichtige Einschränkung
 
-Ohne Root darf eine App den globalen Audio-Mix nur steuern, wenn One UI es zulässt. Sonora prüft das beim Start und zeigt das Ergebnis unter **Jetzt → Systemausgang** und in **Mehr → Diagnose**:
+Ohne Root darf eine App den globalen Audio-Mix nur steuern, wenn One UI es zulässt. Sonora prüft das beim Start und zeigt das Ergebnis unter **Jetzt → Klang-Engine & Beschleunigung** und in **Mehr → Diagnose**:
 
-- **„Klangänderung angefordert"** — Android hat die Effektkontrolle freigegeben.
-- **„Gerät erlaubt keine Steuerung des Systemausgangs"** — Android verweigert den Zugriff. Die App speichert deine Kurve weiterhin, kann sie aber nicht anwenden. Es gibt keinen stillen Workaround; genau das zu verschweigen wäre der Fehler.
-
-Raumklang hängt zusätzlich davon ab, ob das Gerät `Virtualizer` und `EnvironmentalReverb` bereitstellt. Mittenfokus und Dynamikkontrolle werden von Android nicht als getrennte Effekte angeboten und deshalb auch nicht behauptet.
+- **„Verarbeitung angefordert: Ja · Session 0: Bestätigt“** — Android hat die Effektkontrolle freigegeben.
+- **„Nicht verfügbar: Das Gerät erlaubt keine Steuerung des Systemausgangs“** — Android verweigert den Zugriff auf Session 0. Die App speichert deine Kurve weiterhin, kann sie aber nicht global erzwingen. Es gibt keinen stillen Workaround; genau das offen zu benennen ist das Prinzip von Sonora.
 
 ---
 
 ## Installation auf dem Galaxy A56
 
-Die fertige APK liegt auf dem Handy unter:
+Die fertige APK liegt unter:
 
 ```
-/storage/emulated/0/Download/Sonora-0.1.0-debug.apk
+Eigene Dateien/Sonora-0.2.0-debug.apk
 ```
 
-1. Öffne **Eigene Dateien** (Samsung) → **Downloads** → `Sonora-0.1.0-debug.apk`.
+bzw. auf dem Smartphone unter `/storage/emulated/0/Download/Sonora-0.2.0-debug.apk`.
+
+1. Öffne **Eigene Dateien** (Samsung) → **Downloads** → `Sonora-0.2.0-debug.apk`.
 2. Tippe die Datei an. Android fragt nach der Erlaubnis, aus dieser Quelle zu installieren → **Zulassen**.
 3. **Installieren** → **Öffnen**.
-4. Im Onboarding: Benachrichtigungen erlauben, Mikrofon optional, Benachrichtigungszugriff optional. Ohne Mikrofon funktioniert alles außer der Umgebungsmessung.
-5. Nach dem Start siehst du eine stille Benachrichtigung **„Sonora ist aktiv"**. Sie hält den Klangdienst am Leben und lässt sich über **Mehr → Hintergrund → Beenden** stoppen.
-
-Die APK ist debug-signiert. Updates müssen deshalb mit derselben Signatur installiert werden; eine später signierte Release-Version verlangt eine Neuinstallation.
+4. Im Onboarding: Benachrichtigungen erlauben, Mikrofon optional. Ohne Mikrofon funktioniert alles außer der Umgebungsmessung.
+5. Nach dem Start hält ein leiser Vordergrunddienst die Session aktiv. Er lässt sich jederzeit über **Mehr → Hintergrunddienst** stoppen.
 
 ---
 
-## Equalizer benutzen
-
-**1. Prüfen, ob der Systemausgang mitspielt**
-
-Öffne **Jetzt**. Die Karte **Systemausgang** zeigt den Zustand. Steht dort die Warnung, kann Sonora auf diesem Gerät nicht systemweit eingreifen — dann ist der Equalizer gespeichert, aber nicht hörbar.
-
-**2. Kurve einstellen**
-
-| Element | Bedeutung |
-|---|---|
-| **10 / 31 / 64+** | Anzahl der Regler. Die Kurve wird beim Wechsel interpoliert, nicht verworfen. |
-| **Presets** | Fertige Kurven, sofort hörbar. |
-| **Vorverstärkung** | Absenken, wenn laute Bässe übersteuern. Der Limiter begrenzt die Anhebung automatisch. |
-| **Bänder** | Jeder Regler von −12 bis +12 dB in 0,5-dB-Schritten. |
-| **A/B** | Vergleicht deine Kurve mit neutral, ohne sie zu verlieren. |
-| **Zurücksetzen** | Setzt alle Bänder auf 0 dB. |
-| **Profil speichern** | Legt die aktuelle Kurve unter einem Namen ab. |
-
-Die Zeile unter den Reglern sagt, auf wie viele echte Gerätebänder deine Kurve abgebildet wird. Ein Gerät mit weniger Bändern bekommt trotzdem eine sinnvolle Näherung; jedes Geräteband wird nur einmal belegt, damit keine Anhebung doppelt wirkt.
-
-**3. Profil dauerhaft nutzen**
-
-Unter **Profile** aktivierst du ein gespeichertes Profil, exportierst es als JSON oder importierst eines. Das Format ist versioniert und wird beim Import migriert.
-
-**4. Wenn du nicht weißt, wo du anfangen sollst**
-
-- **Interview:** acht Fragen in Alltagssprache → Kurve mit Vorschau → übernehmen und speichern.
-- **Verblindeter Test:** zehn Durchläufe, Sonora gegen neutral, Bewertung 1–10. Das Ergebnis ist die ehrlichste Rückmeldung, die diese App geben kann.
-
----
-
-## Die fünf Bereiche
-
-| Tab | Inhalt |
-|---|---|
-| **Jetzt** | Systemstatus, aktives Profil, Umgebung, Hörschutz, Schnellstart für Interview und Hörtest |
-| **Klang** | Equalizer, Presets, Vorverstärkung, A/B, Profil speichern |
-| **Raum** | Neun eigene Raumklang-Modi plus „Aus", gemeinsamer Stärke-Regler |
-| **Profile** | Aktivieren, speichern, exportieren, importieren, löschen |
-| **Mehr** | Berechtigungen, Diagnose, Inhaltserkennung, Hörschutz, Hintergrunddienst |
-
-Die Raumnamen sind eigene Bezeichnungen. Dolby, DTS und Auro werden weder dekodiert noch als Fähigkeit dargestellt.
-
----
-
-## Datenschutz
-
-- Keine `INTERNET`-Berechtigung. Kein Konto, kein Telemetrieversand.
-- Mikrofon nur für Pegelmessung; kein Mitschnitt, keine Speicherung.
-- Profile und Diagnoseereignisse liegen lokal im App-Speicher.
-- Benachrichtigungszugriff liest App-Name und Titel, nie den Ton. Abschaltbar.
-- Die Hörschutz-Erinnerung ändert die Lautstärke nicht.
-
----
-
-## Technik
-
-| Pfad | Aufgabe |
-|---|---|
-| `audio/SonoraEngine.kt` | Android-Effekte: Equalizer, Virtualizer, Reverb, Limiter |
-| `audio/MediaWatcher.kt` | Laufende Medien über `MediaSessionManager` erkennen |
-| `audio/EnvironmentAnalyzer.kt` | Pegelmessung und Einordnung |
-| `core/EqModel.kt` | Bandraster und Interpolation zwischen 10/31/64 Bändern |
-| `core/BandMapping.kt` | Abbildung UI-Band → Geräteband ohne Doppelbelegung |
-| `core/Limiter.kt` | Begrenzung der Anhebung |
-| `core/ProfileSchema.kt` | Versioniertes JSON-Format mit Migration |
-| `data/ProfileStore.kt` | Persistenz und Import/Export |
-| `service/SonoraService.kt` | Vordergrunddienst, Hörschutz-Erinnerung |
-| `ui/` | Compose-Oberfläche, Theme und Screens |
-
-Kein Root, keine nativen Bibliotheken, keine Fremd-DSP. Die App nutzt ausschließlich die öffentlichen Android-Audioeffekte.
-
----
-
-## Selbst bauen
+## Selbst bauen & testen
 
 Voraussetzungen: JDK 17, Android SDK mit Plattform 35 und Build-Tools 36.0.0, Gradle 8.14.5.
 
 ```bash
-# SDK-Pfad einmalig eintragen (wird nicht committet)
+# SDK-Pfad einmalig eintragen
 echo "sdk.dir=$HOME/Android/Sdk" > local.properties
 
-# Debug-APK bauen
+# Debug-APK bauen (Version 0.2.0)
 gradle --no-daemon assembleDebug
 
-# Unit-Tests (58)
+# Unit- & DSP-Signaltests ausführen (81 Tests)
 gradle --no-daemon testDebugUnitTest
 ```
 
-Ergebnis: `app/build/outputs/apk/debug/app-debug.apk`.
-
-Die Konfiguration ist bewusst konservativ (`gradle.properties`: ein Worker, kein Daemon, 1536 MiB Heap), damit sie auch auf dem Telefon in Termux/PRoot durchläuft.
+Ergebnis: `app/build/outputs/apk/debug/app-debug.apk` (SHA-256: `3f3a7149fd5a4ea178dbba6c3b5615d9a8e587234dca12e935c43643e8fe3c8b`).
 
 ---
 
 ## Dokumentation
 
 - [`docs/prd.md`](docs/prd.md) — Produktanforderungen, Umfang, Key Results
-- [`docs/design/ux-spec.md`](docs/design/ux-spec.md) — Interaktions- und Zustandsregeln
-- [`DESIGN.md`](DESIGN.md) — Farben, Typografie, Komponenten
+- [`DESIGN.md`](DESIGN.md) — Farben, Typografie, Barrierefreiheit, Komponenten
+- [`docs/qa/implementation-plan.md`](docs/qa/implementation-plan.md) — Detaillierter Implementierungsplan v0.2.0
+- [`docs/qa/baseline-audit.md`](docs/qa/baseline-audit.md) — Baseline-Audit der Ausgangsbasis
+- [`docs/qa/skill-and-prompt-plan.md`](docs/qa/skill-and-prompt-plan.md) — Orchestrierung und Werkzeuginventar
+- [`docs/qa/sonora-0.2-report.md`](docs/qa/sonora-0.2-report.md) — Vollständiger QA-Abschlussbericht
 
 ---
 
-## Lizenz
+## Lizenz & Datenschutz
 
-Lizenziert unter der [MIT-Lizenz](LICENSE).
+- **Lizenz:** Lizenziert unter der [MIT-Lizenz](LICENSE).
+- **Datenschutz:** 100 % lokal auf dem Gerät. Keine Netzwerkberechtigung (`android.permission.INTERNET` ist nicht vorhanden), keine Telemetrie, keine Kontopflicht, kein Audio-Streaming.

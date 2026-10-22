@@ -62,7 +62,7 @@ class SonoraService : Service() {
             val profile = stored.profiles.firstOrNull { it.id == stored.activeProfileId } ?: stored.profiles.firstOrNull()
             if (profile != null) {
                 val bandCount = parseBandCount(profile.bandCount)
-                SonoraEngine.applyCurve(EqCurve(bandCount, profile.levelsFor(bandCount)), preampDb = 0f)
+                SonoraEngine.applyCurve(EqCurve(bandCount, profile.levelsFor(bandCount)), preampDb = profile.preampDb)
                 val enabled = getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE).getBoolean(MASTER_ENABLED_KEY, true)
                 SonoraEngine.setEnabled(enabled)
             }

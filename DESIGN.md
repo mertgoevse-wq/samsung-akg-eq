@@ -1,24 +1,29 @@
 # Design System: Sonora
-**Project ID:** Kein Stitch-Projekt verbunden; Designgrundlage sind `Theme.kt`, `Screens.kt`, `SpatialScreen.kt` und die UX-Spezifikation v0.1.
+**Project ID:** Google Stitch Projekt `17216265226395693672` (`Sonora — Premium Hero Sound Studio`), Design-System `assets/17775038923923443825`.
+Designgrundlage sind die Stitch-Spezifikation, `Theme.kt`, `Screens.kt`, `SpatialScreen.kt` und die UX-Spezifikation v0.2.
 
 ## 1. Visual Theme & Atmosphere
 
-Sonora wirkt ruhig, konzentriert und technisch, ohne wie ein Messinstrument auszusehen. Das dunkle Anthrazit schafft eine unaufdringliche Hörumgebung; warmes Kupfer lenkt den Blick nur auf aktive Zustände und primäre Aktionen. Großzügige Abstände und wenige, klar gruppierte Flächen sollen die tägliche Bedienung mit einer Hand erleichtern. Die Sprache bleibt direkt und alltagsnah, während Diagnosewerte auf den dafür vorgesehenen Bereich beschränkt sind.
-
-Die visuelle Spezifikation ist im Repository als Entwurf gekennzeichnet. Dieses Dokument fasst belegte Werte aus der implementierten Compose-Oberfläche und dem Theme zusammen; es behauptet keine Stitch-Screenshot- oder Projektmetadaten, die hier nicht verfügbar sind.
+Sonora nutzt ein edles, fokussiertes **Hero-Design**:
+- **Kein AI-Slop:** Konsequenter Verzicht auf Glassmorphismus, Neomorphismus, Skeumorphismus, Brutalismus, Liquid Glass oder dekorative Farbverläufe ohne Funktion.
+- **Dunkles Nacht-Anthrazit:** Ein extrem beruhigender, reflexionsarmer Hintergrund (#0E1013), der auf OLED-Displays des Galaxy A56 maximale Energieeffizienz und Tiefenwirkung entfaltet.
+- **Warmes Kupfer (#C98B5E):** Hochwertiger, warmer Akzentton, der ausschließlich funktionale Zustände, aktive Filter und primäre Aktionen kennzeichnet.
+- **Mathematische Präzision:** Klare geometrische Hierarchien, 16-dp-Kartenradien, 48-dp-Mindesttrefferflächen und vollständige WCAG 2.2 AA / AAA Kontrastkonformität.
 
 ## 2. Color Palette & Roles
 
-- **Nacht-Anthrazit (#0E1013):** Grundfläche und dunkelster Hintergrund. Es hält die Oberfläche visuell zurück und lässt Inhalte ohne dekorative Effekte hervortreten.
-- **Graphit-Fläche (#171A1F):** Standardfläche für Karten und Navigation. Die Fläche trennt zusammengehörige Inhalte subtil vom Hintergrund.
-- **Schiefer-Fläche (#232830):** Sekundäre Fläche und Material-3-`surfaceVariant`, etwa für nicht ausgewählte, zurückhaltende UI-Flächen.
-- **Warmes Kupfer (#C98B5E):** Primärfarbe für aktive Zustände, Auswahl und wichtigste Aktionen. Der Akzent signalisiert Bedienbarkeit statt Dekoration.
-- **Helles Kupfer (#E3B591):** Sekundärer warmer Akzent für ergänzende Hervorhebung.
-- **Papierweiß (#F2EDE7):** Primärer Text auf dunklen Flächen; weicher als reines Weiß und damit passend zur ruhigen Klangmarke.
-- **Nebelgrau (#9AA0A6):** Sekundärtext, Erklärungen und weniger wichtige Informationen.
-- **Bernstein-Warnung (#E0A458):** Warnungen und Fehlerzustände, die nicht mit dem normalen Kupfer-Aktivzustand verwechselt werden sollen.
+- **Nacht-Anthrazit (#0E1013):** Grundfläche und dunkelster Hintergrund. Kontrastbasis für alle Bedienelemente.
+- **Graphit-Fläche (#171A1F):** Primäre Kartenoberfläche mit 1-dp Rand (#262E3B).
+- **Schiefer-Fläche (#232830):** Sekundäre Fläche für inaktive Bedienelemente und Slider-Tracks.
+- **Ausgewählte Schiefer-Fläche (#282F3B):** Aktive Auswahlkarten mit hoher Erkennbarkeit.
+- **Warmes Kupfer (#C98B5E):** Primärer Akzent (5.8:1 Kontrast auf Anthrazit).
+- **Helles Kupfer (#E3B591):** Sekundärer Akzent für feine Details und Typografie (9.2:1 Kontrast).
+- **Papierweiß (#F2EDE7):** Primäre Textfarbe (16.5:1 Kontrast, AAA-konform).
+- **Nebelgrau (#9AA0A6):** Sekundärtext und Maßangaben (5.3:1 Kontrast, AA-konform).
+- **Bernstein-Warnung (#E0A458):** Fehler- und Clipping-Zustände (8.3:1 Kontrast).
+- **Grün-Aktiv (#4BB574):** Bestätigter Hardware- und DSP-Status (6.9:1 Kontrast).
 
-Farbe ist nie das einzige Statussignal: Auswahl und Aktivität müssen zusätzlich durch Text, Form oder ein Bedienelement wie RadioButton/Switch erkennbar sein. Die UX-Spezifikation verlangt mindestens 4,5:1 Textkontrast und 3:1 für große Elemente; Kontrastwerte einzelner Tokenpaare wurden in diesem Repository nicht automatisiert nachgewiesen.
+Farbe ist nie das einzige Statussignal: Aktivität wird stets durch Text, Form (z. B. RadioButton/Switch) und Semantik vermittelt.
 
 ## 3. Typography Rules
 

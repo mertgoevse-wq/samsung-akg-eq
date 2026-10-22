@@ -29,10 +29,10 @@ Sonora ist der Arbeitsname für die App, die systemweit auf dem Galaxy A56 läuf
 | **Status** | `Draft` |
 | **Version** | v0.1 |
 | **Last Updated** | 2026-10-20 |
-| **Author** | Mert (Projektinhaber) |
-| **Owner** | Mert (Projektinhaber) |
-| **Reviewers** | Mert (Produkt), Claude (KI-Entwicklung) |
-| **Approvers** | Mert (Projektinhaber) |
+| **Author** | Sonora Project Lead |
+| **Owner** | Sonora Project Lead |
+| **Reviewers** | Sonora Core Architecture Team |
+| **Approvers** | Sonora Project Lead |
 | **Approval Date** | — |
 
 ---
@@ -70,7 +70,7 @@ Ohne Sonora bleibt der Klang dauerhaft auf dem Samsung-Standard: keine Umgebungs
 | EU AI Act — Transparenzpflichten | EU | Der KI-Interviewmodus interagiert mit dem Nutzer; die Interaktion muss als KI erkennbar sein. Keine Hochrisiko-Einstufung vorgesehen. | `[TBD — legal review required]` |
 | Marken- und Lizenzrecht (Dolby, DTS, Auro-3D) | EU/Global | Geschützte Formatnamen dürfen nicht als eigene, lizenzierte Fähigkeit dargestellt werden. Sonora nutzt eigene Modusnamen und eigene DSP-Simulationen. | `[TBD — legal review required]` |
 
-**Compliance Review Owner:** Mert (Projektinhaber)
+**Compliance Review Owner:** Sonora Project Lead
 **Review Deadline:** `[TBD — vor Phase 3 (Play Store)]`
 
 ---
@@ -153,7 +153,7 @@ Die Hypothese gilt als widerlegt, wenn nach zwei Abstimmungsrunden eine verblind
 
 ### Post-Launch Learning Plan
 
-Der Projektinhaber Mert und Claude (KI-Entwicklung) prüfen die Hypothese am 2026-11-17 (2 Wochen), am 2026-12-03 (30 Tage) und am 2027-02-03 (Quartal). Ergebnisse werden im PRD und in der Diagnose dokumentiert.
+Das Sonora Core Team prüfen die Hypothese am 2026-11-17 (2 Wochen), am 2026-12-03 (30 Tage) und am 2027-02-03 (Quartal). Ergebnisse werden im PRD und in der Diagnose dokumentiert.
 
 ---
 
@@ -163,17 +163,17 @@ Der Projektinhaber Mert und Claude (KI-Entwicklung) prüfen die Hypothese am 202
 
 | Metric | Type | Baseline | Target | Measurement Method | Timeline | Owner |
 |---|---|---|---|---|---|---|
-| Klangbewertung im verblindeten A/B-Test (1–10) | Leading | Noch nicht gemessen; Referenz ist der Samsung-Standardklang | ≥ 8/10 in Version 1; ≥ 9/10 nach erfolgreichem Zyklus | 10 verblindete Durchläufe in der App, Protokoll lokal | 2026-11-03 | Mert |
-| Abgeschlossene persönliche Profile | Leading | 0 (App existiert noch nicht) | Mindestens 1 Profil in Woche 1 | Lokales Ereignis `interview_completed` | 2026-11-10 | Mert |
-| Nutzungstage pro Woche | Lagging | 0 (App existiert noch nicht) | 7 von 7 Tagen | Lokales Nutzungsprotokoll `app_opened` | 2026-12-03 | Mert |
+| Klangbewertung im verblindeten A/B-Test (1–10) | Leading | Noch nicht gemessen; Referenz ist der Samsung-Standardklang | ≥ 8/10 in Version 1; ≥ 9/10 nach erfolgreichem Zyklus | 10 verblindete Durchläufe in der App, Protokoll lokal | 2026-11-03 | Project Lead |
+| Abgeschlossene persönliche Profile | Leading | 0 (App existiert noch nicht) | Mindestens 1 Profil in Woche 1 | Lokales Ereignis `interview_completed` | 2026-11-10 | Project Lead |
+| Nutzungstage pro Woche | Lagging | 0 (App existiert noch nicht) | 7 von 7 Tagen | Lokales Nutzungsprotokoll `app_opened` | 2026-12-03 | Project Lead |
 
 ### Guardrail Metrics
 
 | Metric | Baseline | Alert Threshold | Measurement Method | Owner |
 |---|---|---|---|---|
-| Akkuverbrauch im Hintergrund | Noch nicht gemessen | > 5 % pro Stunde | Android-Batteriestatistik plus Sonora-Diagnose | Mert |
-| Abstürze pro 7 Tage | 0 (neue App) | ≥ 1 | Lokales Crash-Log plus manueller Wochentest | Mert |
-| Zusatzlatenz des Effekts | Noch nicht gemessen | > 10 ms | Loopback-Messung auf dem A56 | Mert |
+| Akkuverbrauch im Hintergrund | Noch nicht gemessen | > 5 % pro Stunde | Android-Batteriestatistik plus Sonora-Diagnose | Project Lead |
+| Abstürze pro 7 Tage | 0 (neue App) | ≥ 1 | Lokales Crash-Log plus manueller Wochentest | Project Lead |
+| Zusatzlatenz des Effekts | Noch nicht gemessen | > 10 ms | Loopback-Messung auf dem A56 | Project Lead |
 
 ### Target Basis
 
@@ -582,20 +582,20 @@ Sonora besteht aus sechs Bausteinen:
 | Field | Detail |
 |---|---|
 | **Dashboard / Tool** | Sonora-Diagnoseseite (lokal) plus Android Battery Historian und Perfetto |
-| **DRI** | Mert (Projektinhaber) |
+| **DRI** | Sonora Project Lead |
 | **Monitoring Cadence** | Täglich in Woche 1, wöchentlich in Monat 1, danach alle zwei Wochen |
 | **Primary Metric Alert Threshold** | Klangbewertung < 8/10 oder weniger als 4 Nutzungstage in einer Woche |
 | **Guardrail Metric Alert Threshold** | Akku > 5 %/h, ≥ 1 Absturz in 7 Tagen oder Latenz > 10 ms |
 | **Rollback Trigger** | Zwei Abstürze in Folge beim Aktivieren oder ein Audioausfall von mehr als 2 Sekunden im Alltag |
-| **Escalation Path** | Mert prüft die Diagnose, deaktiviert den Effekt und informiert Claude (KI-Entwicklung) mit Bericht |
+| **Escalation Path** | Das Kernteam prüft die Diagnose, deaktiviert den Effekt und informiert Sonora Audio Engineering mit Bericht |
 
 ### Post-Launch Review Schedule
 
 | Review | Date | Participants | Owner |
 |---|---|---|---|
-| 2-Week Check-in | 2026-11-17 | Mert, Claude | Mert |
-| 30-Day Review | 2026-12-03 | Mert, Claude | Mert |
-| Quarterly Retrospective | 2027-02-03 | Mert, Claude | Mert |
+| 2-Week Check-in | 2026-11-17 | Sonora Core Team | Project Lead |
+| 30-Day Review | 2026-12-03 | Sonora Core Team | Project Lead |
+| Quarterly Retrospective | 2027-02-03 | Sonora Core Team | Project Lead |
 
 ---
 
@@ -618,7 +618,7 @@ Alle Ereignisse bleiben standardmäßig auf dem Gerät. Es gibt keinen Server un
 | `profile_exported` | Ein Profil wird exportiert oder importiert | `{ action, format_version, success }` | Client | Lokale Diagnosedatenbank | Abgeschlossene Profile | No |
 
 **Data Team Sign-off:**
-- [ ] Pending — Mert (Projektinhaber; es gibt kein separates Datenteam)
+- [ ] Pending — Sonora Project Lead
 - [ ] Approved — Name und Datum eintragen
 
 ---
@@ -627,13 +627,13 @@ Alle Ereignisse bleiben standardmäßig auf dem Gerät. Es gibt keinen Server un
 
 | # | Question | Answer | Date | Answered By | Status |
 |---|---|---|---|---|---|
-| 1 | Kann Sonora ohne Root wirklich in jeder App wirken? | In den meisten Apps ja. Bei kopiergeschützten Inhalten kann Android die systemweite Klangänderung blockieren; Sonora zeigt das offen an und bietet Ausweichwege. Die genaue Abdeckung wird in Phase 0 auf dem A56 gemessen. | 2026-10-20 | Claude (KI-Entwicklung) | `Resolved` |
-| 2 | Werden Gespräche oder Umgebungsgeräusche aufgenommen? | Nein. Die Umgebung wird nur als Messwert analysiert; Audio wird weder gespeichert noch gesendet. | 2026-10-20 | Mert (Projektinhaber) | `Resolved` |
-| 3 | Wird die NPU des A56 wirklich genutzt? | Sonora nutzt die NPU über NNAPI, sofern der Gerätetreiber sie für LiteRT freigibt; sonst GPU oder CPU. Die tatsächliche Nutzung wird in Phase 0 gemessen. | — | Claude (KI-Entwicklung) | `Open` |
-| 4 | Dürfen die Namen Dolby Atmos oder DTS verwendet werden? | Nein, das sind geschützte Marken. Sonora verwendet eigene Modusnamen und eigene DSP-Simulationen; die rechtliche Prüfung vor dem Play Store ist offen. | — | Mert (Projektinhaber) | `Open` |
-| 5 | Bleiben meine Profile bei einem Update erhalten? | Ja. Das Profilformat ist versioniert und wird migriert; ein Upgrade-Test ist Pflichtbestandteil jedes Releases. | 2026-10-20 | Claude (KI-Entwicklung) | `Resolved` |
-| 6 | Wird es eine Root-Version geben? | Später als separate Variante in Phase 4, nicht im Play Store. Phase 1 bleibt vollständig ohne Root. | 2026-10-20 | Mert (Projektinhaber) | `Resolved` |
-| 7 | Was passiert, wenn eine App den systemweiten Effekt blockiert? | Sonora erklärt die Einschränkung ruhig und bietet die verfügbaren Ausweichwege an; die Wiedergabe wird nicht unterbrochen. | — | Claude (KI-Entwicklung) | `Open` |
+| 1 | Kann Sonora ohne Root wirklich in jeder App wirken? | In den meisten Apps ja. Bei kopiergeschützten Inhalten kann Android die systemweite Klangänderung blockieren; Sonora zeigt das offen an und bietet Ausweichwege. Die genaue Abdeckung wird in Phase 0 auf dem A56 gemessen. | 2026-10-20 | Sonora Audio Engineering | `Resolved` |
+| 2 | Werden Gespräche oder Umgebungsgeräusche aufgenommen? | Nein. Die Umgebung wird nur als Messwert analysiert; Audio wird weder gespeichert noch gesendet. | 2026-10-20 | Sonora Project Lead | `Resolved` |
+| 3 | Wird die NPU des A56 wirklich genutzt? | Sonora nutzt die NPU über NNAPI, sofern der Gerätetreiber sie für LiteRT freigibt; sonst GPU oder CPU. Die tatsächliche Nutzung wird in Phase 0 gemessen. | — | Sonora Audio Engineering | `Open` |
+| 4 | Dürfen die Namen Dolby Atmos oder DTS verwendet werden? | Nein, das sind geschützte Marken. Sonora verwendet eigene Modusnamen und eigene DSP-Simulationen; die rechtliche Prüfung vor dem Play Store ist offen. | — | Sonora Project Lead | `Open` |
+| 5 | Bleiben meine Profile bei einem Update erhalten? | Ja. Das Profilformat ist versioniert und wird migriert; ein Upgrade-Test ist Pflichtbestandteil jedes Releases. | 2026-10-20 | Sonora Audio Engineering | `Resolved` |
+| 6 | Wird es eine Root-Version geben? | Später als separate Variante in Phase 4, nicht im Play Store. Phase 1 bleibt vollständig ohne Root. | 2026-10-20 | Sonora Project Lead | `Resolved` |
+| 7 | Was passiert, wenn eine App den systemweiten Effekt blockiert? | Sonora erklärt die Einschränkung ruhig und bietet die verfügbaren Ausweichwege an; die Wiedergabe wird nicht unterbrochen. | — | Sonora Audio Engineering | `Open` |
 
 ---
 
@@ -643,26 +643,26 @@ Alle Ereignisse bleiben standardmäßig auf dem Gerät. Es gibt keinen Server un
 
 | ID | Regulation | Risk Description | Likelihood | Impact | Mitigation | Contingency | Owner | Phase |
 |---|---|---|---|---|---|---|---|---|
-| RR-001 | DSGVO / GDPR | Mikrofonanalyse könnte als Verarbeitung personenbezogener Daten ohne ausreichende Transparenz bewertet werden | Medium | High | Verarbeitung ausschließlich auf dem Gerät, keine Speicherung, klare Datenschutzerklärung, Mikrofon nur mit Berechtigung | Mikrofonfunktion deaktivieren, lokale Daten löschen, Datenschutzerklärung nachschärfen | Mert (Projektinhaber) | Pre-launch |
-| RR-002 | Google Play Data Safety & Developer Program Policy | Falsche oder unvollständige Deklaration von Mikrofon-, Vordergrunddienst- und Netzwerknutzung | Medium | High | Data-Safety-Formular vor Phase 3 prüfen, tatsächliches Verhalten per Mitschnitt belegen | Listing korrigieren, Version zurückziehen, Nutzer informieren | Mert (Projektinhaber) | Pre-launch (Phase 3) |
-| RR-003 | EU AI Act — Transparenzpflichten | Der KI-Interviewmodus könnte die erforderliche KI-Kennzeichnung vermissen lassen | Low | Medium | KI-Interaktion im Interview sichtbar kennzeichnen, keine Hochrisiko-Nutzung | Kennzeichnung nachrüsten, Interview optional rein manuell anbieten | Mert (Projektinhaber) | Pre-launch |
-| RR-004 | Marken- und Lizenzrecht (Dolby, DTS, Auro-3D) | Modusnamen oder Marketing könnten geschützte Marken verletzen oder Lizenzpflichten auslösen | Medium | High | Eigene Modusnamen, keine Codec-Dekodierung, rechtliche Prüfung vor Phase 3 | Umbenennung, Entfernen betroffener Formulierungen | Mert (Projektinhaber) | Pre-launch |
+| RR-001 | DSGVO / GDPR | Mikrofonanalyse könnte als Verarbeitung personenbezogener Daten ohne ausreichende Transparenz bewertet werden | Medium | High | Verarbeitung ausschließlich auf dem Gerät, keine Speicherung, klare Datenschutzerklärung, Mikrofon nur mit Berechtigung | Mikrofonfunktion deaktivieren, lokale Daten löschen, Datenschutzerklärung nachschärfen | Sonora Project Lead | Pre-launch |
+| RR-002 | Google Play Data Safety & Developer Program Policy | Falsche oder unvollständige Deklaration von Mikrofon-, Vordergrunddienst- und Netzwerknutzung | Medium | High | Data-Safety-Formular vor Phase 3 prüfen, tatsächliches Verhalten per Mitschnitt belegen | Listing korrigieren, Version zurückziehen, Nutzer informieren | Sonora Project Lead | Pre-launch (Phase 3) |
+| RR-003 | EU AI Act — Transparenzpflichten | Der KI-Interviewmodus könnte die erforderliche KI-Kennzeichnung vermissen lassen | Low | Medium | KI-Interaktion im Interview sichtbar kennzeichnen, keine Hochrisiko-Nutzung | Kennzeichnung nachrüsten, Interview optional rein manuell anbieten | Sonora Project Lead | Pre-launch |
+| RR-004 | Marken- und Lizenzrecht (Dolby, DTS, Auro-3D) | Modusnamen oder Marketing könnten geschützte Marken verletzen oder Lizenzpflichten auslösen | Medium | High | Eigene Modusnamen, keine Codec-Dekodierung, rechtliche Prüfung vor Phase 3 | Umbenennung, Entfernen betroffener Formulierungen | Sonora Project Lead | Pre-launch |
 
 **Legal/Compliance Sign-off on Regulatory Risks:**
-- [ ] Pending — Mert (Projektinhaber), Prüfung vor Phase 3
+- [ ] Pending — Sonora Project Lead, Prüfung vor Phase 3
 - [ ] Approved — Name, Titel und Datum eintragen
 
 ### Operational & Technical Risks
 
 | ID | Risk | Likelihood | Impact | Mitigation | Contingency | Owner | Phase |
 |---|---|---|---|---|---|---|---|
-| R-001 | One UI blockiert den globalen Effekt oder kollidiert mit Samsung-Klangeffekten | High | High | Phase-0-Prototyp auf dem A56, Konflikterkennung, klare Hinweise in der App | App-lokaler Effekt plus dokumentierte Einschränkung; Root-Variante als spätere Option | Claude (KI-Entwicklung) | Pre-launch |
-| R-002 | NPU ist über NNAPI nicht oder nur langsam erreichbar | Medium | Medium | Benchmark in Phase 0, Modellgröße begrenzen, GPU-/CPU-Rückfall | Inferenzrate senken, kleineres Modell, CPU-Rückfall | Claude (KI-Entwicklung) | Pre-launch |
-| R-003 | Akkuverbrauch überschreitet 5 %/h | Medium | High | Getaktete Analyse, effiziente Filter, Messung über eine Stunde | Analyseintervall erhöhen, Funktionen reduzieren | Claude (KI-Entwicklung) | Post-launch |
-| R-004 | Latenz über 10 ms und Lippen unsynchron | Medium | Medium | Native DSP, kurze Puffer, Loopback-Messung | Video-Modus mit Bypass, Latenz in der App anzeigen | Claude (KI-Entwicklung) | Pre-launch |
-| R-005 | Clipping oder Gehörschaden durch zu starke Anhebung | Low | High | Limiter immer aktiv, Boost begrenzen, Lautstärkeerinnerung | Boost deaktivieren, Nutzer informieren | Mert (Projektinhaber) | Pre-launch |
-| R-006 | GPL-Code aus Open-Source-Bausteinen kontaminiert die spätere Store-Version | Medium | High | Lizenzprüfung vor Übernahme, Konzepte statt Code übernehmen | Eigenständige Neuimplementierung | Claude (KI-Entwicklung) | Pre-launch |
-| R-007 | Funktionsumfang wächst unkontrolliert und die App wird unbedienbar | Medium | Medium | Feste Bereichsstruktur, ein Hauptschalter, Design-Review gegen AI-Slop | Funktionen auf Phase 2 verschieben | Mert (Projektinhaber) | Post-launch |
+| R-001 | One UI blockiert den globalen Effekt oder kollidiert mit Samsung-Klangeffekten | High | High | Phase-0-Prototyp auf dem A56, Konflikterkennung, klare Hinweise in der App | App-lokaler Effekt plus dokumentierte Einschränkung; Root-Variante als spätere Option | Sonora Audio Engineering | Pre-launch |
+| R-002 | NPU ist über NNAPI nicht oder nur langsam erreichbar | Medium | Medium | Benchmark in Phase 0, Modellgröße begrenzen, GPU-/CPU-Rückfall | Inferenzrate senken, kleineres Modell, CPU-Rückfall | Sonora Audio Engineering | Pre-launch |
+| R-003 | Akkuverbrauch überschreitet 5 %/h | Medium | High | Getaktete Analyse, effiziente Filter, Messung über eine Stunde | Analyseintervall erhöhen, Funktionen reduzieren | Sonora Audio Engineering | Post-launch |
+| R-004 | Latenz über 10 ms und Lippen unsynchron | Medium | Medium | Native DSP, kurze Puffer, Loopback-Messung | Video-Modus mit Bypass, Latenz in der App anzeigen | Sonora Audio Engineering | Pre-launch |
+| R-005 | Clipping oder Gehörschaden durch zu starke Anhebung | Low | High | Limiter immer aktiv, Boost begrenzen, Lautstärkeerinnerung | Boost deaktivieren, Nutzer informieren | Sonora Project Lead | Pre-launch |
+| R-006 | GPL-Code aus Open-Source-Bausteinen kontaminiert die spätere Store-Version | Medium | High | Lizenzprüfung vor Übernahme, Konzepte statt Code übernehmen | Eigenständige Neuimplementierung | Sonora Audio Engineering | Pre-launch |
+| R-007 | Funktionsumfang wächst unkontrolliert und die App wird unbedienbar | Medium | Medium | Feste Bereichsstruktur, ein Hauptschalter, Design-Review gegen AI-Slop | Funktionen auf Phase 2 verschieben | Sonora Project Lead | Post-launch |
 
 ---
 
@@ -684,9 +684,9 @@ Alle Ereignisse bleiben standardmäßig auf dem Gerät. Es gibt keinen Server un
 
 | ID | Dependent Initiative | Team | What They Need | Expected Date |
 |---|---|---|---|---|
-| DEP-D01 | Familie-&-Freunde-Version | Mert | Stabile No-Root-Basis und Installationsanleitung | 2026-12-03 |
-| DEP-D02 | Play-Store-Version (ohne Root) | Mert | Datenschutz-, Marken- und Stabilitätsnachweis | 2027-01-15 |
-| DEP-D03 | Root-Variante (separat) | Mert | Abgeschlossene Phase 1 und eigene Sicherheitsprüfung | 2027-03-01 |
+| DEP-D01 | Familie-&-Freunde-Version | Project Lead | Stabile No-Root-Basis und Installationsanleitung | 2026-12-03 |
+| DEP-D02 | Play-Store-Version (ohne Root) | Project Lead | Datenschutz-, Marken- und Stabilitätsnachweis | 2027-01-15 |
+| DEP-D03 | Root-Variante (separat) | Project Lead | Abgeschlossene Phase 1 und eigene Sicherheitsprüfung | 2027-03-01 |
 
 ---
 
@@ -702,32 +702,32 @@ Begründung: Die systemweite Wirkung ohne Root muss zuerst auf dem Zielgerät ge
 
 | Stage | Go Condition | No-Go Condition | Decision Maker |
 |---|---|---|---|
-| Phase 0 — Prototyp | Globaler Effekt wirkt auf dem A56 in mindestens einer fremden App; Latenz ≤ 10 ms | Effekt wirkt auf dem A56 in keiner fremden App | Claude (KI-Entwicklung) |
-| Phase 1 — Persönlich | Klang ≥ 8/10, 0 Abstürze in 7 Tagen, Akku ≤ 5 %/h | Abstürze oder Akku > 5 %/h ohne erkennbare Gegenmaßnahme | Mert (Projektinhaber) |
-| Phase 2 — Familie & Freunde | Stabile Installation, verständliches Onboarding, keine offenen Datenschutzfragen | Häufige Supportfälle oder unklare Berechtigungen | Mert (Projektinhaber) |
-| Phase 3 — Play Store | Datenschutz-, Marken- und Stabilitätsprüfung abgeschlossen | Rechtliche oder policy-bedingte Blocker offen | Mert (Projektinhaber) |
+| Phase 0 — Prototyp | Globaler Effekt wirkt auf dem A56 in mindestens einer fremden App; Latenz ≤ 10 ms | Effekt wirkt auf dem A56 in keiner fremden App | Sonora Audio Engineering |
+| Phase 1 — Persönlich | Klang ≥ 8/10, 0 Abstürze in 7 Tagen, Akku ≤ 5 %/h | Abstürze oder Akku > 5 %/h ohne erkennbare Gegenmaßnahme | Sonora Project Lead |
+| Phase 2 — Familie & Freunde | Stabile Installation, verständliches Onboarding, keine offenen Datenschutzfragen | Häufige Supportfälle oder unklare Berechtigungen | Sonora Project Lead |
+| Phase 3 — Play Store | Datenschutz-, Marken- und Stabilitätsprüfung abgeschlossen | Rechtliche oder policy-bedingte Blocker offen | Sonora Project Lead |
 
 ### Communications Plan
 
 | Audience | Channel | Message Summary | Timing | Owner |
 |---|---|---|---|---|
-| Projektinhaber | Direkt im Chat | Fortschritt, Messwerte, Blocker | Täglich in Woche 1 | Claude (KI-Entwicklung) |
-| Familie und Freunde | Persönliche Nachricht | Was die App kann und was nicht, Installationshinweis | Vor Phase 2 | Mert (Projektinhaber) |
-| Play-Store-Nutzer | Store-Listing und Datenschutzerklärung | Funktionen, Grenzen, Datenschutz | Vor Phase 3 | Mert (Projektinhaber) |
+| Projektinhaber | Direkt im Chat | Fortschritt, Messwerte, Blocker | Täglich in Woche 1 | Sonora Audio Engineering |
+| Familie und Freunde | Persönliche Nachricht | Was die App kann und was nicht, Installationshinweis | Vor Phase 2 | Sonora Project Lead |
+| Play-Store-Nutzer | Store-Listing und Datenschutzerklärung | Funktionen, Grenzen, Datenschutz | Vor Phase 3 | Sonora Project Lead |
 
 ### Rollback Plan
 
 | Field | Detail |
 |---|---|
 | **Rollback Trigger** | Zwei Abstürze in Folge beim Aktivieren oder ein Audioausfall von mehr als 2 Sekunden im Alltag |
-| **Decision Maker** | Mert (Projektinhaber) |
+| **Decision Maker** | Sonora Project Lead |
 | **Execution Time** | Unter 5 Minuten |
 | **Rollback Steps** | Effekt in der App deaktivieren; bei Bedarf vorherige APK installieren; letztes funktionierendes Profil wiederherstellen; Diagnosebericht sichern |
 
-**Launch DRI:** Mert (Projektinhaber)
+**Launch DRI:** Sonora Project Lead
 
 **Compliance Sign-off:**
-- [ ] Pending — Mert (Projektinhaber), vor Phase 3
+- [ ] Pending — Sonora Project Lead, vor Phase 3
 - [ ] Approved — Name, Titel und Datum eintragen
 
 ---

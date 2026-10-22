@@ -23,7 +23,12 @@ private fun SoundProfile.toStored() = StoredProfile(
     levelsDb = levels,
     bandCount = bandCount,
     preset = preset,
-    createdAt = createdAt
+    createdAt = createdAt,
+    preampDb = preampDb,
+    origin = origin,
+    uncertainty = uncertainty,
+    boundaryLimits = boundaryLimits,
+    updatedAt = updatedAt
 )
 
 private fun StoredProfile.toSoundProfile() = SoundProfile(
@@ -32,15 +37,18 @@ private fun StoredProfile.toSoundProfile() = SoundProfile(
     levels = levelsDb,
     preset = preset,
     createdAt = createdAt.takeIf { it > 0L } ?: System.currentTimeMillis(),
-    bandCount = bandCount
+    bandCount = bandCount,
+    preampDb = preampDb,
+    origin = origin,
+    uncertainty = uncertainty,
+    boundaryLimits = boundaryLimits,
+    updatedAt = updatedAt.takeIf { it > 0L } ?: createdAt.takeIf { it > 0L } ?: System.currentTimeMillis()
 )
 
 private fun ProfileFile.toStored() = StoredProfileFile(
     schemaVersion = schemaVersion,
     activeProfileId = activeProfileId,
-    profiles = profiles.map { profile ->
-        StoredProfile(profile.id, profile.name, profile.levels, profile.bandCount, profile.preset, profile.createdAt)
-    }
+    profiles = profiles.map { it.toStored() }
 )
 
 private fun StoredProfileFile.toProfileFile() = ProfileFile(
@@ -56,7 +64,12 @@ data class SoundProfile(
     val levels: List<Float>,
     val preset: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
-    val bandCount: String = "10"
+    val bandCount: String = "10",
+    val preampDb: Float = 0f,
+    val origin: String? = null,
+    val uncertainty: String? = null,
+    val boundaryLimits: String? = null,
+    val updatedAt: Long = System.currentTimeMillis()
 ) {
     fun levelsFor(count: BandCount): List<Float> =
         if (parseBandCount(bandCount) == count) {
@@ -69,19 +82,12 @@ data class SoundProfile(
 @Serializable
 data class ProfileFile(
     val schemaVersion: Int = PROFILE_SCHEMA_VERSION,
-    val activeProfileId: String = "flat",
+    val activeProfileId: String = "neutral",
     val profiles: List<SoundProfile> = emptyList()
 )
 
 object Presets {
-    val defaults: List<SoundProfile> = listOf(
-        SoundProfile("flat", "Neutral", List(10) { 0f }, "flat"),
-        SoundProfile("bass", "Bass", listOf(6f, 5f, 4f, 2f, 0f, -1f, -1f, 0f, 1f, 1f), "bass"),
-        SoundProfile("voice", "Sprache", listOf(-3f, -2f, -1f, 1f, 3f, 4f, 3f, 1f, 0f, -1f), "voice"),
-        SoundProfile("bright", "Klar und hell", listOf(-1f, 0f, 0f, 1f, 2f, 3f, 4f, 4f, 3f, 2f), "bright"),
-        SoundProfile("warm", "Warm", listOf(3f, 3f, 2f, 1f, 0f, 0f, -1f, -2f, -2f, -2f), "warm"),
-        SoundProfile("night", "Nacht", listOf(-2f, -1f, 0f, 2f, 3f, 2f, 0f, -2f, -3f, -4f), "night")
-    )
+    val defaults: List<SoundProfile> get() = PresetCatalog.defaultProfiles
 }
 
 class ProfileStore(context: Context) {
@@ -94,9 +100,9 @@ class ProfileStore(context: Context) {
 
     fun load(): ProfileFile {
         val raw = prefs.getString(KEY_FILE, null)
-            ?: return ProfileFile(profiles = Presets.defaults, activeProfileId = "flat")
+            ?: return ProfileFile(profiles = Presets.defaults, activeProfileId = "neutral")
         val decoded = ProfileSchema.decode(raw).getOrNull()
-            ?: return ProfileFile(profiles = Presets.defaults, activeProfileId = "flat")
+            ?: return ProfileFile(profiles = Presets.defaults, activeProfileId = "neutral")
         val migration = ProfileSchema.migrate(decoded)
         if (migration.migrated) {
             prefs.edit().putString(KEY_BACKUP_V1, raw).apply()
@@ -105,7 +111,7 @@ class ProfileStore(context: Context) {
         val file = migration.file.toProfileFile()
         if (migration.migrated || decoded.schemaVersion != file.schemaVersion) save(file)
         return if (file.profiles.isEmpty()) {
-            ProfileFile(profiles = Presets.defaults, activeProfileId = "flat")
+            ProfileFile(profiles = Presets.defaults, activeProfileId = "neutral")
         } else file
     }
 
@@ -114,6 +120,40 @@ class ProfileStore(context: Context) {
         prefs.edit()
             .putString(KEY_FILE, ProfileSchema.encode(normalized.toStored()))
             .apply()
+    }
+
+    fun duplicateProfile(id: String): SoundProfile? {
+        val current = load()
+        val original = current.profiles.firstOrNull { it.id == id } ?: return null
+        val baseName = original.name.take(50)
+        val copyName = "$baseName (Kopie)"
+        val copy = original.copy(
+            id = UUID.randomUUID().toString(),
+            name = copyName,
+            createdAt = System.currentTimeMillis(),
+            updatedAt = System.currentTimeMillis(),
+            preset = null, // Custom copy is no longer a read-only preset
+            origin = "Duplikat von „${original.name}“"
+        )
+        val updated = current.copy(profiles = current.profiles + copy)
+        save(updated)
+        return copy
+    }
+
+    fun renameProfile(id: String, newName: String): Boolean {
+        val clean = newName.trim().take(60)
+        if (clean.isBlank()) return false
+        val current = load()
+        val target = current.profiles.firstOrNull { it.id == id } ?: return false
+        val updatedList = current.profiles.map { profile ->
+            if (profile.id == id) {
+                profile.copy(name = clean, updatedAt = System.currentTimeMillis())
+            } else {
+                profile
+            }
+        }
+        save(current.copy(profiles = updatedList))
+        return true
     }
 
     fun exportProfile(id: String): String? {
@@ -140,7 +180,11 @@ class ProfileStore(context: Context) {
             val base = imported.name.take(52)
             "$base (Import)"
         } else imported.name
-        val profile = imported.copy(id = uniqueId, name = renamed).toSoundProfile()
+        val profile = imported.copy(
+            id = uniqueId,
+            name = renamed,
+            updatedAt = System.currentTimeMillis()
+        ).toSoundProfile()
         val updated = current.copy(profiles = current.profiles + profile)
         save(updated)
         return ProfileImportResult(true, "Profil „${profile.name}“ importiert.", profile, updated.profiles)

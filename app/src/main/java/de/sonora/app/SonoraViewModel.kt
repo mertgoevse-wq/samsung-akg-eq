@@ -14,14 +14,21 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import de.sonora.app.ai.AiAdviceRequest
+import de.sonora.app.ai.AiAdviceResult
+import de.sonora.app.ai.AiSuggestion
+import de.sonora.app.ai.HearingPreference
+import de.sonora.app.ai.LocalRuleAiProvider
+import de.sonora.app.audio.AudioDeviceSnapshot
+import de.sonora.app.audio.AudioRoutingManager
 import de.sonora.app.audio.EngineStatus
 import de.sonora.app.audio.EnvironmentAnalyzer
 import de.sonora.app.audio.EnvironmentReading
 import de.sonora.app.audio.MediaWatcher
-import de.sonora.app.core.MediaPermission
-import de.sonora.app.core.MediaRule
-import de.sonora.app.core.NowPlaying
 import de.sonora.app.audio.SonoraEngine
+import de.sonora.app.audio.dsp.DspHardwareState
+import de.sonora.app.audio.dsp.HardwareDspAccelerator
 import de.sonora.app.core.BandCount
 import de.sonora.app.core.EqCurve
 import de.sonora.app.core.SpatialMode
@@ -33,6 +40,9 @@ import de.sonora.app.core.InterviewEvaluator
 import de.sonora.app.core.DiagnosticEvent
 import de.sonora.app.core.EventLog
 import de.sonora.app.core.EventNames
+import de.sonora.app.core.MediaPermission
+import de.sonora.app.core.MediaRule
+import de.sonora.app.core.NowPlaying
 import de.sonora.app.core.VolumeGuard
 import de.sonora.app.core.VolumeState
 import de.sonora.app.core.VOLUME_LOUD_SINCE_KEY
@@ -48,6 +58,7 @@ import de.sonora.app.data.ProfileFile
 import de.sonora.app.data.ProfileStore
 import de.sonora.app.data.SoundProfile
 import de.sonora.app.service.SonoraService
+import kotlinx.coroutines.launch
 import java.util.UUID
 
 @Immutable
@@ -65,6 +76,11 @@ data class SonoraUiState(
     val spatialIntensity: Float = 0.7f,
     val spatialAvailable: Boolean = false,
     val spatialAvailabilityMessage: String? = null,
+    val audioRouting: AudioDeviceSnapshot = AudioDeviceSnapshot(),
+    val hardwareState: DspHardwareState = HardwareDspAccelerator.getHardwareState(),
+    val aiSuggestion: AiSuggestion? = null,
+    val aiLoading: Boolean = false,
+    val aiPreferences: HearingPreference = HearingPreference(),
     val interviewActive: Boolean = false,
     val interviewIndex: Int = 0,
     val interviewAnswers: List<InterviewAnswer> = emptyList(),
@@ -87,7 +103,7 @@ data class SonoraUiState(
     val blindTestFeedbackSaved: Boolean = false,
     val blindTestMessage: String? = null,
     val profiles: List<SoundProfile> = emptyList(),
-    val activeProfileId: String = "flat",
+    val activeProfileId: String = "neutral",
     val activeProfileName: String = "Neutral",
     val environment: EnvironmentReading? = null,
     val autoAdjust: Boolean = false,
@@ -97,6 +113,13 @@ data class SonoraUiState(
 
 class SonoraViewModel(application: Application) : AndroidViewModel(application) {
 
+    companion object {
+        const val MASTER_ENABLED_KEY = "master_enabled"
+        const val BLIND_TEST_SEGMENT_MS = 3_000L
+        const val BLIND_TEST_PLAYBACK_CHECK_MS = 500L
+        const val VOLUME_REFRESH_INTERVAL_MS = 60_000L
+    }
+
     private val store = ProfileStore(application)
     private val diagnosticsStore = DiagnosticsStore(application)
     private val eventLog = EventLog().also { it.replaceAll(diagnosticsStore.load()) }
@@ -104,6 +127,12 @@ class SonoraViewModel(application: Application) : AndroidViewModel(application) 
     private var blindTest = BlindTest()
     private val safetyPreferences = application.getSharedPreferences("sonora_safety_v1", 0)
     private val settingsPreferences = application.getSharedPreferences("sonora_settings_v1", 0)
+    private val routingManager = AudioRoutingManager(application) { snapshot ->
+        mainHandler.post {
+            uiState = uiState.copy(audioRouting = snapshot)
+        }
+    }
+    private val localAiProvider = LocalRuleAiProvider()
     private var blindTestSessionId: Int = 0
     private var blindTestSecondSegment: Runnable? = null
     private var blindTestFinishSegment: Runnable? = null
@@ -134,6 +163,7 @@ class SonoraViewModel(application: Application) : AndroidViewModel(application) 
         private set
 
     init {
+        routingManager.register()
         val file = store.load()
         val active = file.profiles.firstOrNull { it.id == file.activeProfileId }
             ?: file.profiles.firstOrNull()
@@ -150,9 +180,12 @@ class SonoraViewModel(application: Application) : AndroidViewModel(application) 
             profiles = file.profiles,
             activeProfileId = active.id,
             activeProfileName = active.name,
+            preampDb = active.preampDb,
             bandCount = profileBandCount(active),
             eqCurve = EqCurve(profileBandCount(active), active.levelsFor(profileBandCount(active))),
-            levelsDb = active.levelsFor(profileBandCount(active))
+            levelsDb = active.levelsFor(profileBandCount(active)),
+            audioRouting = routingManager.currentSnapshot,
+            hardwareState = HardwareDspAccelerator.getHardwareState()
         )
         recordEvent(EventNames.APP_OPENED, mapOf("version" to de.sonora.app.BuildConfig.VERSION_NAME, "android_version" to android.os.Build.VERSION.RELEASE))
         refreshVolumeState()
@@ -554,8 +587,92 @@ class SonoraViewModel(application: Application) : AndroidViewModel(application) 
         refreshVolumeState()
     }
 
+    fun duplicateProfile(id: String) {
+        val copy = store.duplicateProfile(id) ?: return
+        val currentProfiles = store.load().profiles
+        uiState = uiState.copy(
+            profiles = currentProfiles,
+            activeProfileId = copy.id,
+            activeProfileName = copy.name,
+            message = "Profil „${copy.name}“ dupliziert."
+        )
+        applyPreset(copy, source = "duplicate")
+    }
+
+    fun renameProfile(id: String, newName: String) {
+        val success = store.renameProfile(id, newName)
+        if (success) {
+            val updated = store.load().profiles
+            val activeName = updated.firstOrNull { it.id == uiState.activeProfileId }?.name ?: uiState.activeProfileName
+            uiState = uiState.copy(
+                profiles = updated,
+                activeProfileName = activeName,
+                message = "Profil umbenannt in „${newName.trim()}“."
+            )
+        }
+    }
+
+    fun requestAiSuggestion(preference: HearingPreference = uiState.aiPreferences) {
+        val current = uiState.profiles.firstOrNull { it.id == uiState.activeProfileId } ?: return
+        uiState = uiState.copy(aiLoading = true, aiPreferences = preference)
+        viewModelScope.launch {
+            val noiseDb = uiState.environment?.let { if (it.level == 2) 75f else 50f }
+            val request = AiAdviceRequest(
+                preferences = preference,
+                currentNoiseLevelDb = noiseDb,
+                consentGiven = true
+            )
+            val result = localAiProvider.generateSuggestion(request, current)
+            mainHandler.post {
+                when (result) {
+                    is AiAdviceResult.Success -> {
+                        uiState = uiState.copy(aiSuggestion = result.suggestion, aiLoading = false)
+                    }
+                    is AiAdviceResult.Error -> {
+                        uiState = uiState.copy(aiLoading = false, message = result.message)
+                    }
+                }
+            }
+        }
+    }
+
+    fun applyAiSuggestion() {
+        val suggestion = uiState.aiSuggestion ?: return
+        val newProfile = suggestion.toSoundProfile()
+        val updated = uiState.profiles + newProfile
+        uiState = uiState.copy(
+            profiles = updated,
+            activeProfileId = newProfile.id,
+            activeProfileName = newProfile.name,
+            eqCurve = EqCurve(suggestion.bandCount, suggestion.levelsDb).withBandCount(uiState.bandCount),
+            levelsDb = EqCurve(suggestion.bandCount, suggestion.levelsDb).withBandCount(uiState.bandCount).levelsDb,
+            preampDb = suggestion.preampDb,
+            aiSuggestion = null,
+            message = "KI-Vorschlag „${newProfile.name}“ übernommen."
+        )
+        applyEffective()
+        store.save(ProfileFile(activeProfileId = newProfile.id, profiles = updated))
+    }
+
+    fun dismissAiSuggestion() {
+        uiState = uiState.copy(aiSuggestion = null)
+    }
+
+    fun refreshAudioRouting() {
+        routingManager.refresh("Manuelle Diagnoseprüfung")
+        uiState = uiState.copy(
+            audioRouting = routingManager.currentSnapshot,
+            hardwareState = HardwareDspAccelerator.getHardwareState()
+        )
+    }
+
     fun onAppResumed() {
         refreshVolumeState()
+        routingManager.refresh("onAppResumed")
+        uiState = uiState.copy(
+            audioRouting = routingManager.currentSnapshot,
+            hardwareState = HardwareDspAccelerator.getHardwareState()
+        )
         val mediaOptIn = getApplication<Application>().getSharedPreferences("sonora_media_v1", 0).getBoolean("enabled", false)
         refreshMicrophonePermission()
         if (mediaOptIn != uiState.mediaEnabled) setMediaEnabled(mediaOptIn)
@@ -856,13 +973,6 @@ class SonoraViewModel(application: Application) : AndroidViewModel(application) 
         return EqCurve(BandCount.TEN, adapted).withBandCount(uiState.bandCount).levelsDb
     }
 
-    private companion object {
-        const val MASTER_ENABLED_KEY = "master_enabled"
-        const val BLIND_TEST_SEGMENT_MS = 3_000L
-        const val BLIND_TEST_PLAYBACK_CHECK_MS = 500L
-        const val VOLUME_REFRESH_INTERVAL_MS = 60_000L
-    }
-
     private fun profileBandCount(profile: SoundProfile): BandCount = when (profile.bandCount) {
         "31" -> BandCount.THIRTY_ONE
         "64", "64+" -> BandCount.SIXTY_FOUR
@@ -886,7 +996,8 @@ class SonoraViewModel(application: Application) : AndroidViewModel(application) 
         Manifest.permission.RECORD_AUDIO
     ) == PackageManager.PERMISSION_GRANTED
 
-    override    fun onCleared() {
+    override fun onCleared() {
+        routingManager.unregister()
         mainHandler.removeCallbacksAndMessages(null)
         if (bypassed) endBypass()
 

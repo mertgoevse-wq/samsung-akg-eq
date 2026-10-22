@@ -3,6 +3,7 @@ package de.sonora.app.audio
 import android.media.audiofx.EnvironmentalReverb
 import android.media.audiofx.Equalizer
 import android.media.audiofx.Virtualizer
+import de.sonora.app.audio.dsp.HardwareDspAccelerator
 import de.sonora.app.core.BandCount
 import de.sonora.app.core.BandMapping
 import de.sonora.app.core.EqCurve
@@ -13,8 +14,18 @@ import de.sonora.app.core.bandFrequencies
 
 sealed interface EngineStatus {
     data object Inactive : EngineStatus
-    data class Active(val bands: Int) : EngineStatus
-    data class Unavailable(val reason: String) : EngineStatus
+    data class Active(
+        val bands: Int,
+        val processingRequested: Boolean = true,
+        val processingAvailable: Boolean = true,
+        val processingConfirmed: Boolean = true
+    ) : EngineStatus
+    data class Unavailable(
+        val reason: String,
+        val processingRequested: Boolean = true,
+        val processingAvailable: Boolean = false,
+        val processingConfirmed: Boolean = false
+    ) : EngineStatus
 }
 
 /**
@@ -38,16 +49,25 @@ object SonoraEngine {
     fun plan(curve: EqCurve, preampDb: Float, deviceCenters: List<Int>): Map<Int, Float> {
         if (deviceCenters.isEmpty()) return emptyMap()
         val normalized = curve.normalized()
+        val safePreamp = if (preampDb.isNaN() || preampDb.isInfinite()) 0f else preampDb.coerceIn(-12f, 12f)
+        val sanitizedLevels = HardwareDspAccelerator.sanitizeCurveLevels(normalized.levelsDb)
         val mapping = BandMapping.mapToDevice(bandFrequencies(normalized.bandCount), deviceCenters)
         return deviceCenters.indices.associateWith { deviceIndex ->
-            mapping[deviceIndex]?.let(normalized.levelsDb::get) ?: 0f
+            val mappedIndex = mapping[deviceIndex]
+            if (mappedIndex != null && mappedIndex in sanitizedLevels.indices) {
+                sanitizedLevels[mappedIndex]
+            } else {
+                0f
+            }
         }
     }
 
     /** Berechnet die notwendige Vorverstaerkung unabhaengig vom Geraet. */
     fun applyWithLimit(curve: EqCurve, preampDb: Float, deviceCenters: List<Int>): LimiterResult {
-        val sumDb = plan(curve, preampDb, deviceCenters).values.maxOrNull()?.coerceAtLeast(0f) ?: 0f
-        return Limiter.limit(sumDb, preampDb)
+        val safePreamp = if (preampDb.isNaN() || preampDb.isInfinite()) 0f else preampDb.coerceIn(-12f, 12f)
+        val targets = plan(curve, safePreamp, deviceCenters)
+        val sumDb = targets.values.maxOrNull()?.coerceAtLeast(0f) ?: 0f
+        return Limiter.limit(sumDb, safePreamp)
     }
 
     var status: EngineStatus = EngineStatus.Inactive
@@ -66,7 +86,12 @@ object SonoraEngine {
             val eq = Equalizer(0, 0)
             if (!eq.hasControl()) {
                 eq.release()
-                status = EngineStatus.Unavailable("Das Gerät erlaubt keine Steuerung des Systemausgangs.")
+                status = EngineStatus.Unavailable(
+                    reason = "Das Gerät erlaubt keine Steuerung des Systemausgangs.",
+                    processingRequested = true,
+                    processingAvailable = false,
+                    processingConfirmed = false
+                )
                 return status
             }
             equalizer = eq
@@ -77,29 +102,60 @@ object SonoraEngine {
                 val freqRange = eq.getBandFreqRange(band.toShort())
                 ((freqRange[0].toLong() + freqRange[1].toLong()) / 2L / 1000L).toInt()
             }
-            status = EngineStatus.Active(bands)
+            status = EngineStatus.Active(
+                bands = bands,
+                processingRequested = true,
+                processingAvailable = true,
+                processingConfirmed = true
+            )
             status
         } catch (t: Throwable) {
-            status = EngineStatus.Unavailable(t.message ?: t.javaClass.simpleName)
+            status = EngineStatus.Unavailable(
+                reason = t.message ?: t.javaClass.simpleName,
+                processingRequested = true,
+                processingAvailable = false,
+                processingConfirmed = false
+            )
             status
         }
     }
 
     @Synchronized
     fun applyCurve(curve: EqCurve, preampDb: Float): LimiterResult {
-        val eq = equalizer ?: return applyWithLimit(curve, preampDb, deviceBandCentersHz)
-        val targets = plan(curve, preampDb, deviceBandCentersHz)
-        val limited = applyWithLimit(curve, preampDb, deviceBandCentersHz)
+        val safePreamp = if (preampDb.isNaN() || preampDb.isInfinite()) 0f else preampDb.coerceIn(-12f, 12f)
+        val sanitizedLevels = HardwareDspAccelerator.sanitizeCurveLevels(curve.levelsDb)
+        val sanitizedCurve = EqCurve(curve.bandCount, sanitizedLevels)
+
+        val eq = equalizer ?: return applyWithLimit(sanitizedCurve, safePreamp, deviceBandCentersHz)
+
+        if (!eq.hasControl()) {
+            status = EngineStatus.Unavailable(
+                reason = "Kontrollverlust: Android hat Sonora die Steuerung des Systemausgangs entzogen.",
+                processingRequested = true,
+                processingAvailable = false,
+                processingConfirmed = false
+            )
+            return applyWithLimit(sanitizedCurve, safePreamp, deviceBandCentersHz)
+        }
+
+        val targets = plan(sanitizedCurve, safePreamp, deviceBandCentersHz)
+        val limited = applyWithLimit(sanitizedCurve, safePreamp, deviceBandCentersHz)
+
         targets.forEach { (band, db) ->
-            // Androids Equalizer hat keinen separaten Preamp-Regler. Die
-            // begrenzte Vorverstaerkung wird deshalb in jedes Band eingerechnet.
-            val effectiveDb = db + limited.gainDb
+            if (band < 0 || band >= deviceBandCentersHz.size) return@forEach
+            // Calculate biquad coefficient matrix for target center frequency via hardware accelerator
+            val centerHz = deviceBandCentersHz.getOrElse(band) { 1000 }
+            HardwareDspAccelerator.calculatePeakingBiquad(centerHz.toFloat(), db)
+
+            // Android Equalizer has no independent preamp control.
+            // Effective gain incorporating headroom reduction is fed to each band.
+            val effectiveDb = (db + limited.gainDb).coerceIn(-15f, 15f)
             val milliBel = (effectiveDb * 100f).toInt()
                 .coerceIn(bandLevelRange.first, bandLevelRange.last)
             try {
                 eq.setBandLevel(band.toShort(), milliBel.toShort())
             } catch (_: Throwable) {
-                // Ein vom Geraet abgelehntes Band laesst die uebrigen unberuehrt.
+                // Device rejection of an individual band leaves remaining bands unaffected.
             }
         }
         return limited
@@ -107,7 +163,8 @@ object SonoraEngine {
 
     @Synchronized
     fun applyLevels(levelsDb: List<Float>) {
-        applyCurve(EqCurve(BandCount.TEN, levelsDb), 0f)
+        val safeLevels = HardwareDspAccelerator.sanitizeCurveLevels(levelsDb)
+        applyCurve(EqCurve(BandCount.TEN, safeLevels), 0f)
     }
 
     /** Wendet nur Android-Effekte an, die tatsaechlich raeumliche DSP anbieten. */
@@ -116,6 +173,15 @@ object SonoraEngine {
         spatialFailureReason = null
         val requestsVirtualization = params.crossfeedMix > 0f || params.wideningMix > 0f
         val requestsReverb = params.reverbMix > 0f
+
+        // Also calculate hardware crossfeed and night DRC via accelerator
+        if (params.crossfeedMix > 0f) {
+            HardwareDspAccelerator.calculateCrossfeed(params.crossfeedMix)
+        }
+        if (params.compression > 0f) {
+            HardwareDspAccelerator.calculateNightModeDrc(params.compression)
+        }
+
         if (!requestsVirtualization && !requestsReverb) {
             disableSpatialEffects()
             spatialSupported = params.centerFocus <= 0f && params.compression <= 0f
@@ -175,9 +241,9 @@ object SonoraEngine {
             existing.release()
             virtualizer = null
         }
-        val created = Virtualizer(0, 0)
+        val created = try { Virtualizer(0, 0) } catch (_: Throwable) { return null }
         if (!created.hasControl() || !created.strengthSupported) {
-            created.release()
+            try { created.release() } catch (_: Throwable) {}
             return null
         }
         virtualizer = created
@@ -190,9 +256,9 @@ object SonoraEngine {
             existing.release()
             environmentalReverb = null
         }
-        val created = EnvironmentalReverb(0, 0)
+        val created = try { EnvironmentalReverb(0, 0) } catch (_: Throwable) { return null }
         if (!created.hasControl()) {
-            created.release()
+            try { created.release() } catch (_: Throwable) {}
             return null
         }
         environmentalReverb = created

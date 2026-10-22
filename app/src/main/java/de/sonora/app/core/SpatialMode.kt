@@ -1,5 +1,7 @@
 package de.sonora.app.core
 
+import androidx.compose.runtime.Immutable
+
 /**
  * Die neun Klangraeume von Sonora.
  *
@@ -21,6 +23,28 @@ enum class SpatialMode(
     NACHT("nacht", "Nacht", "Leise, aber verständlich."),
     BREIT_WARM("breit", "Breit & Warm", "Entspannt, weich, etwas wärmer.")
 }
+
+enum class DspStageState {
+    ACTIVE,
+    PARTIALLY_ACTIVE,
+    UNAVAILABLE,
+    PENDING
+}
+
+@Immutable
+data class DspStageReport(
+    val stageName: String,
+    val state: DspStageState,
+    val detail: String
+)
+
+@Immutable
+data class ModeDspEvaluation(
+    val mode: SpatialMode,
+    val overallState: DspStageState,
+    val stages: List<DspStageReport>,
+    val summaryMessage: String
+)
 
 /**
  * Die Mischwerte eines Klangraums, alle zwischen 0 und 1.
@@ -69,6 +93,101 @@ object SpatialModeCatalog {
             f.reverbMix * t,
             f.centerFocus * t,
             f.compression * t
+        )
+    }
+
+    /**
+     * Erstellt einen transparenten DSP-Prüfbericht für jeden Modus.
+     * Keine Behauptung von HRTF oder nicht-implementierten Effekten.
+     */
+    fun evaluateDspStages(
+        mode: SpatialMode,
+        virtualizerSupported: Boolean,
+        reverbSupported: Boolean,
+        intensity: Float = 0.7f
+    ): ModeDspEvaluation {
+        val p = params(mode, intensity)
+        val reports = mutableListOf<DspStageReport>()
+
+        // 1. Stereo-Widening
+        if (p.wideningMix > 0f) {
+            reports.add(
+                DspStageReport(
+                    stageName = "Stereo-Widening",
+                    state = if (virtualizerSupported) DspStageState.ACTIVE else DspStageState.UNAVAILABLE,
+                    detail = if (virtualizerSupported) "Hardware-Virtualizer aktiv (${(p.wideningMix * 100).toInt()} %)"
+                    else "Gerät unterstützt Virtualizer auf Systemausgang nicht"
+                )
+            )
+        }
+
+        // 2. Crossfeed
+        if (p.crossfeedMix > 0f) {
+            reports.add(
+                DspStageReport(
+                    stageName = "Crossfeed (Bauer-Filter)",
+                    state = DspStageState.ACTIVE,
+                    detail = "L/R-Übersprechen mit 280 µs Verzögerung aktiv (${(p.crossfeedMix * 100).toInt()} %)"
+                )
+            )
+        }
+
+        // 3. Hall & frühe Reflexionen
+        if (p.reverbMix > 0f) {
+            reports.add(
+                DspStageReport(
+                    stageName = "Raumhall & frühe Reflexionen",
+                    state = if (reverbSupported) DspStageState.ACTIVE else DspStageState.UNAVAILABLE,
+                    detail = if (reverbSupported) "EnvironmentalReverb aktiv (${(p.reverbMix * 100).toInt()} %)"
+                    else "Gerät unterstützt EnvironmentalReverb auf Systemausgang nicht"
+                )
+            )
+        }
+
+        // 4. Sprachverständlichkeit / Mittenfokus
+        if (p.centerFocus > 0f) {
+            reports.add(
+                DspStageReport(
+                    stageName = "Sprachfokus (Präsenzband)",
+                    state = DspStageState.ACTIVE,
+                    detail = "Mittenpräsenz um 1.5–3 kHz angehoben (${(p.centerFocus * 100).toInt()} %)"
+                )
+            )
+        }
+
+        // 5. Nachtmodus / Dynamikkontrolle
+        if (p.compression > 0f) {
+            reports.add(
+                DspStageReport(
+                    stageName = "Dynamikkontrolle / Limiter",
+                    state = DspStageState.ACTIVE,
+                    detail = "Night-Mode DRC Kompression aktiv (${(p.compression * 100).toInt()} %)"
+                )
+            )
+        }
+
+        // 6. HRTF (Ehrliche Nicht-Verfügbarkeit)
+        reports.add(
+            DspStageReport(
+                stageName = "Individuelles HRTF-Kopfmodell",
+                state = DspStageState.UNAVAILABLE,
+                detail = "Nicht verfügbar: Kein gerätespezifisches SOFA-Kopfmodell hinterlegt"
+            )
+        )
+
+        val hasUnavailable = reports.any { it.state == DspStageState.UNAVAILABLE && it.stageName != "Individuelles HRTF-Kopfmodell" }
+        val overall = if (hasUnavailable) DspStageState.PARTIALLY_ACTIVE else DspStageState.ACTIVE
+        val summary = if (hasUnavailable) {
+            "Teilweise aktiv: Einige geräteabhängige Effekte werden von One UI auf diesem Ausgang nicht freigegeben."
+        } else {
+            "Alle verfügbaren DSP-Stufen für ${mode.title} aktiv."
+        }
+
+        return ModeDspEvaluation(
+            mode = mode,
+            overallState = overall,
+            stages = reports,
+            summaryMessage = summary
         )
     }
 }

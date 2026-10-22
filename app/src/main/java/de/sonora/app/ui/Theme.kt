@@ -9,14 +9,19 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
+// High-contrast, premium hero palette for Sonora
 val Ink = Color(0xFF0E1013)
 val Surface1 = Color(0xFF171A1F)
 val Surface2 = Color(0xFF232830)
+val SelectedCardSurface = Color(0xFF282F3B)
 val Copper = Color(0xFFC98B5E)
 val CopperSoft = Color(0xFFE3B591)
 val Paper = Color(0xFFF2EDE7)
 val Muted = Color(0xFF9AA0A6)
 val Warning = Color(0xFFE0A458)
+val GreenAccent = Color(0xFF4BB574)
+val DividerColor = Color(0xFF222832)
+val CardBorder = Color(0xFF262E3B)
 
 private val SonoraColors = darkColorScheme(
     primary = Copper,
