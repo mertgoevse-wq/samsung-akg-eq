@@ -122,12 +122,14 @@ object SpatialModeCatalog {
         }
 
         // 2. Crossfeed
+        // SonoraEngine wendet generisch Virtualizer/EnvironmentalReverb an; ein vollstaendiger
+        // Bauer-Crossfeed als separater Echtzeitfilter ist derzeit nicht implementiert.
         if (p.crossfeedMix > 0f) {
             reports.add(
                 DspStageReport(
                     stageName = "Crossfeed (Bauer-Filter)",
-                    state = DspStageState.ACTIVE,
-                    detail = "L/R-Übersprechen mit 280 µs Verzögerung aktiv (${(p.crossfeedMix * 100).toInt()} %)"
+                    state = DspStageState.PARTIALLY_ACTIVE,
+                    detail = "Als Mix-Parameter beschrieben; kein separater Echtzeit-Crossfeed-Filter implementiert (${(p.crossfeedMix * 100).toInt()} %)"
                 )
             )
         }
@@ -145,23 +147,25 @@ object SpatialModeCatalog {
         }
 
         // 4. Sprachverständlichkeit / Mittenfokus
+        // SonoraEngine setzt keine separate Mitten-/Praesenzband-Verarbeitung; der Wert ist ein Mix-Parameter.
         if (p.centerFocus > 0f) {
             reports.add(
                 DspStageReport(
                     stageName = "Sprachfokus (Präsenzband)",
-                    state = DspStageState.ACTIVE,
-                    detail = "Mittenpräsenz um 1.5–3 kHz angehoben (${(p.centerFocus * 100).toInt()} %)"
+                    state = DspStageState.PARTIALLY_ACTIVE,
+                    detail = "Als Mix-Parameter beschrieben; keine separate Echtzeit-Präsenzband-Verarbeitung implementiert (${(p.centerFocus * 100).toInt()} %)"
                 )
             )
         }
 
         // 5. Nachtmodus / Dynamikkontrolle
+        // SonoraEngine setzt keine separate DRC-Kompression; der Wert ist ein Mix-Parameter.
         if (p.compression > 0f) {
             reports.add(
                 DspStageReport(
                     stageName = "Dynamikkontrolle / Limiter",
-                    state = DspStageState.ACTIVE,
-                    detail = "Night-Mode DRC Kompression aktiv (${(p.compression * 100).toInt()} %)"
+                    state = DspStageState.PARTIALLY_ACTIVE,
+                    detail = "Als Mix-Parameter beschrieben; keine separate Echtzeit-DRC-Kompression implementiert (${(p.compression * 100).toInt()} %)"
                 )
             )
         }

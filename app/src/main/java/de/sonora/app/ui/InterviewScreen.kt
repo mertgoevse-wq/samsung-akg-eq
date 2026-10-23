@@ -108,7 +108,7 @@ internal fun InterviewScreenContent(
                 OutlinedButton(
                     onClick = { onSkip(question.id) },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                ) { Text("Kann ich nicht sagen · überspringen") }
+                ) { Text("Kann ich nicht sagen · überspringen", color = Paper) }
             }
         } else {
             val curve = state.preview ?: de.sonora.app.core.InterviewEvaluator.evaluate(state.answers)
