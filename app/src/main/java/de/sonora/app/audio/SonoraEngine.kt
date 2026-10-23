@@ -184,11 +184,15 @@ object SonoraEngine {
 
         if (!requestsVirtualization && !requestsReverb) {
             disableSpatialEffects()
-            spatialSupported = params.centerFocus <= 0f && params.compression <= 0f
-            if (!spatialSupported) {
+            // Neutraler/Originalzustand: keine Effekte angefordert. Mittenfokus und
+            // Dynamikkontrolle werden separat nicht verarbeitet, aber das ist kein
+            // Fehler, solange keine entsprechende Anforderung besteht.
+            val fullySupported = params.centerFocus <= 0f && params.compression <= 0f
+            spatialSupported = fullySupported
+            if (!fullySupported && (params.centerFocus > 0f || params.compression > 0f)) {
                 spatialFailureReason = "Mittenfokus und Dynamikkontrolle werden nicht separat verarbeitet."
             }
-            return spatialSupported
+            return true
         }
         val eq = equalizer
         if ((requestsVirtualization || requestsReverb) && eq == null) {
@@ -224,12 +228,15 @@ object SonoraEngine {
                 environmentalReverb?.enabled = false
             }
 
-            spatialSupported = params.centerFocus <= 0f && params.compression <= 0f
-            if (!spatialSupported) {
-                // These DSP stages are not implemented by Android's generic effects.
+            // Die angeforderten verfuegbaren Effekte (Virtualizer/Reverb) wurden erfolgreich
+            // angewendet. Mittenfokus und Dynamikkontrolle sind nicht separat implementiert,
+            // aber das macht die verfuegbaren Stufen nicht ungueltig.
+            val fullySupported = params.centerFocus <= 0f && params.compression <= 0f
+            spatialSupported = fullySupported
+            if (!fullySupported) {
                 spatialFailureReason = "Mittenfokus und Dynamikkontrolle werden nicht separat verarbeitet."
             }
-            spatialSupported
+            true
         } catch (_: RuntimeException) {
             failSpatial("Das Gerät konnte die angeforderten Raumklangeffekte nicht anwenden.")
         }
