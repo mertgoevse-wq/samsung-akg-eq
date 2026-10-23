@@ -1,6 +1,5 @@
 package de.sonora.app.audio.dsp
 
-import android.os.Build
 import androidx.compose.runtime.Immutable
 import kotlin.math.PI
 import kotlin.math.cos
@@ -9,8 +8,6 @@ import kotlin.math.pow
 import kotlin.math.sin
 
 enum class AccelerationBackend {
-    NPU_NNAPI,
-    GPU_COMPUTE,
     VECTOR_CPU
 }
 
@@ -56,59 +53,29 @@ data class DrcParameters(
 )
 
 /**
- * High-performance DSP calculation pipeline utilizing NPU/GPU acceleration
- * when available, with vector CPU fallback. Computes biquad filter matrices,
- * Bauer crossfeed parameters, stereo widening, and dynamic range compression
- * with strict NaN and Infinity protection.
+ * Computes DSP parameters on the CPU with strict NaN and Infinity protection.
+ * No NNAPI/NPU or GPU compute backend is currently connected.
  */
 object HardwareDspAccelerator {
 
     private const val SAMPLE_RATE = 48000f
 
-    private var cachedBackend: AccelerationBackend? = null
-    private var lastBenchmarkUs: Long = 0L
+    @Volatile
+    private var lastCoefficientCalculationUs: Long? = null
 
     fun getHardwareState(): DspHardwareState {
-        val backend = resolveBackend()
-        val isHw = backend == AccelerationBackend.NPU_NNAPI || backend == AccelerationBackend.GPU_COMPUTE
-        val details = when (backend) {
-            AccelerationBackend.NPU_NNAPI -> "NPU-Beschleunigung aktiv via Neural Networks API (Exynos 1580 NPU)"
-            AccelerationBackend.GPU_COMPUTE -> "GPU-Shader Beschleunigung aktiv (Xclipse 540 RDNA3 GPU)"
-            AccelerationBackend.VECTOR_CPU -> "NEON/Vectorized CPU Pipeline (Cortex-A720/A520)"
-        }
+        val measuredLatencyUs = lastCoefficientCalculationUs
         return DspHardwareState(
-            backend = backend,
-            backendName = when (backend) {
-                AccelerationBackend.NPU_NNAPI -> "NPU (NNAPI / Exynos NPU)"
-                AccelerationBackend.GPU_COMPUTE -> "GPU (Vulkan / Compute)"
-                AccelerationBackend.VECTOR_CPU -> "CPU (ARMv9 NEON Vector)"
-            },
-            isHardwareAccelerated = isHw,
-            latencyMicros = lastBenchmarkUs.coerceAtLeast(12L),
-            details = details
+            backend = AccelerationBackend.VECTOR_CPU,
+            backendName = "CPU (Kotlin)",
+            isHardwareAccelerated = false,
+            latencyMicros = measuredLatencyUs ?: 0L,
+            details = if (measuredLatencyUs == null) {
+                "Die Filterkoeffizienten werden in Kotlin auf der CPU berechnet. NNAPI/NPU und GPU-Compute sind nicht eingebunden."
+            } else {
+                "CPU-Laufzeit der letzten Koeffizientenberechnung: $measuredLatencyUs µs. NNAPI/NPU und GPU-Compute sind nicht eingebunden."
+            }
         )
-    }
-
-    private fun resolveBackend(): AccelerationBackend {
-        cachedBackend?.let { return it }
-
-        // Galaxy A56 (Exynos 1580) features an integrated NPU (approx 14.7 TOPS)
-        // and an AMD Xclipse 540 GPU running on Android 15 (API 35).
-        val hardware = Build.HARDWARE?.lowercase().orEmpty()
-        val board = Build.BOARD?.lowercase().orEmpty()
-        val isSamsungChip = hardware.contains("s5e8855") || board.contains("s5e8855") ||
-                hardware.contains("exynos") || hardware.contains("universal")
-
-        val backend = if (isSamsungChip && Build.VERSION.SDK_INT >= 31) {
-            AccelerationBackend.NPU_NNAPI
-        } else if (Build.VERSION.SDK_INT >= 31) {
-            AccelerationBackend.GPU_COMPUTE
-        } else {
-            AccelerationBackend.VECTOR_CPU
-        }
-
-        cachedBackend = backend
-        return backend
     }
 
     /**
@@ -151,7 +118,7 @@ object HardwareDspAccelerator {
         val normA1 = a1 / safeA0
         val normA2 = a2 / safeA0
 
-        lastBenchmarkUs = max(1L, (System.nanoTime() - startNano) / 1000L)
+        lastCoefficientCalculationUs = max(1L, (System.nanoTime() - startNano) / 1000L)
 
         val result = BiquadCoefficients(
             b0 = if (normB0.isNaN() || normB0.isInfinite()) 1f else normB0,

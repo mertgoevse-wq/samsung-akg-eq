@@ -1,5 +1,6 @@
 package de.sonora.app.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -75,24 +76,28 @@ internal fun InterviewScreenContent(
 ) {
     val question = state.question
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .background(Ink),
         contentPadding = PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            TextButton(onClick = onCancel, modifier = Modifier.heightIn(min = 48.dp)) { Text("Abbrechen") }
-            Text("Persönliches Klangprofil", style = MaterialTheme.typography.headlineMedium)
+            TextButton(onClick = onCancel, modifier = Modifier.heightIn(min = 48.dp)) { Text("Abbrechen", color = Copper) }
+            Text("Persönliches Klangprofil", style = MaterialTheme.typography.headlineMedium, color = Paper)
             Spacer(Modifier.height(8.dp))
             if (state.preview == null) {
                 LinearProgressIndicator(
                     progress = { ((state.index + 1).toFloat() / state.questionCount).coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth().height(4.dp)
+                    modifier = Modifier.fillMaxWidth().height(4.dp),
+                    color = Copper,
+                    trackColor = Surface2
                 )
                 Text("Frage ${state.index + 1} von ${state.questionCount}", style = MaterialTheme.typography.bodySmall, color = Muted)
             }
         }
         if (state.preview == null && question != null) {
-            item { Text(question.prompt, style = MaterialTheme.typography.titleLarge) }
+            item { Text(question.prompt, style = MaterialTheme.typography.titleLarge, color = Paper) }
             items(question.options, key = { it.id }, contentType = { "interview-option" }) { option ->
                 InterviewOptionRow(
                     option = option,
@@ -108,20 +113,20 @@ internal fun InterviewScreenContent(
         } else {
             val curve = state.preview ?: de.sonora.app.core.InterviewEvaluator.evaluate(state.answers)
             item {
-                Text("Dein Vorschlag", style = MaterialTheme.typography.titleLarge)
+                Text("Dein Vorschlag", style = MaterialTheme.typography.titleLarge, color = Paper)
                 Spacer(Modifier.height(6.dp))
-                Text(InterviewEvaluator.summary(curve), style = MaterialTheme.typography.bodyLarge)
+                Text(InterviewEvaluator.summary(curve), style = MaterialTheme.typography.bodyLarge, color = Paper)
                 Spacer(Modifier.height(8.dp))
                 Text("Die Auswertung bleibt auf deinem Handy. Du kannst den Klang erst anhören und dann speichern.", style = MaterialTheme.typography.bodySmall, color = Muted)
             }
             item {
                 OutlinedButton(onClick = onPreview, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                    Text("Profil anhören")
+                    Text("Profil anhören", color = Copper)
                 }
             }
             item {
                 Button(onClick = onSave, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                    Text("Profil speichern und aktivieren")
+                    Text("Profil speichern und aktivieren", color = Ink)
                 }
             }
         }
@@ -131,7 +136,7 @@ internal fun InterviewScreenContent(
 @Composable
 private fun InterviewOptionRow(option: InterviewOption, onClick: () -> Unit) {
     Surface(
-        color = MaterialTheme.colorScheme.surface,
+        color = Surface1,
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier
             .fillMaxWidth()
@@ -140,7 +145,7 @@ private fun InterviewOptionRow(option: InterviewOption, onClick: () -> Unit) {
             .semantics(mergeDescendants = true) { contentDescription = option.label }
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.Center) {
-            Text(option.label, style = MaterialTheme.typography.titleMedium)
+            Text(option.label, style = MaterialTheme.typography.titleMedium, color = Paper)
         }
     }
 }

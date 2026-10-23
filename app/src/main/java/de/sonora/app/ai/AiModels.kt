@@ -45,7 +45,11 @@ data class AiSuggestion(
         bandCount = bandCount.size.toString(),
         preampDb = preampDb,
         origin = "$modelIdentifier v$modelVersion ($backendUsed)",
-        uncertainty = "Konfidenz: ${(confidence * 100).toInt()} %",
+        uncertainty = if (confidence > 0f) {
+            "Konfidenz: ${(confidence * 100).toInt()} %"
+        } else {
+            "Automatischer Regelvorschlag; bitte nach Gehör anpassen"
+        },
         boundaryLimits = "Geprüft: Headroom und Bereichsbegrenzung eingehalten",
         createdAt = System.currentTimeMillis(),
         updatedAt = System.currentTimeMillis()

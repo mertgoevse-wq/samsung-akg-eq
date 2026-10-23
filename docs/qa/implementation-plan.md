@@ -27,11 +27,11 @@ Im Mittelpunkt stehen:
 | Paket | ID | Priorität | Beschreibung | Abhängigkeiten | Erwartete Artefakte |
 |---|---|---|---|---|---|
 | **P1** | AP-AUD-01 | [KRITISCH] Muss | Live-USB-C-Erkennung & Routing via `AudioDeviceCallback` | Keine | `audio/AudioRoutingManager.kt`, Tests |
-| **P2** | AP-DSP-01 | [KRITISCH] Muss | Audio-Engine, NPU/GPU-DSP-Rechenpipeline & Limiter-Härtung | AP-AUD-01 | `audio/SonoraEngine.kt`, `audio/dsp/*`, `core/DspMath.kt` |
+| **P2** | AP-DSP-01 | [KRITISCH] Muss | Audio-Engine, CPU-DSP-Parameter & Limiter-Härtung; NPU/GPU offen | AP-AUD-01 | `audio/SonoraEngine.kt`, `audio/dsp/*`, `core/DspMath.kt` |
 | **P3** | AP-SPA-01 | Muss | Raumklang-DSP: Crossfeed, Widening, Reverb, Mittenfokus, Nacht-DRC | AP-DSP-01 | `core/SpatialModeCatalog.kt`, `audio/dsp/*` |
 | **P4** | AP-PRF-01 | Muss | Preset-Bibliothek (14 Presets) & Profilverwaltung (Duplizieren, Umbenennen, Migration) | Keine | `data/Presets.kt`, `data/ProfileStore.kt`, `core/ProfileSchema.kt` |
-| **P5** | AP-AI-01  | Muss | Entkoppeltes `ai/`-Modul, Schema-Validierung, NPU/GPU/CPU-Inferenz & Provider | Keine | `ai/AiProvider.kt`, `ai/AiProfileAdvisor.kt`, `ai/HardwareAccelerator.kt` |
-| **P6** | AP-UI-01  | Muss | Google Stitch Design-Generierung & Compose Hero-UI | AP-AUD-01, AP-DSP-01, AP-PRF-01, AP-AI-01 | Stitch-Screens, `ui/*`, `ui/Theme.kt` |
+| **P5** | AP-AI-01  | Muss | Entkoppeltes Offline-Regelmodul, Schema-Validierung & Provider; ML-Inferenz offen | Keine | `ai/AiProvider.kt`, `ai/AiModels.kt`, `ai/AiValidator.kt` |
+| **P6** | AP-UI-01  | Muss | Compose-Oberfläche & Design-Konsistenz; Stitch-Zugang nicht verfügbar | AP-AUD-01, AP-DSP-01, AP-PRF-01, AP-AI-01 | `ui/*`, `ui/Theme.kt` |
 | **P7** | AP-TST-01 | [KRITISCH] Muss | Unit- & DSP-Signaltests (Impuls, Sinus, Stereo-Phasen, Bandmapping) | Alle vorherigen | `app/src/test/java/de/sonora/app/*` |
 | **P8** | AP-DOC-01 | Muss | Dokumentation (README, DESIGN.md, docs/prd.md, Sonora 0.2 Report) | AP-TST-01 | `README.md`, `DESIGN.md`, `docs/qa/sonora-0.2-report.md` |
 | **P9** | AP-REL-01 | Muss | Build, APK-Analyse (SHA-256, Signatur), Contributor-Bereinigung & Git-Push | Alle | `app-debug.apk`, bereinigter Git-Stand |
@@ -53,16 +53,16 @@ Im Mittelpunkt stehen:
   - Robuste Behandlung von Null-, Leer- oder Sonderzeichenfeldern in `productName` und `address`.
   - Diagnostische Protokollierung bei jedem Verbindungswechsel in `DiagnosticsStore`.
 
-### AP-DSP-01: Audio-Engine, NPU/GPU-Beschleunigung & Limiter
+### AP-DSP-01: Audio-Engine, DSP-Parameter & Limiter
 - **Ziel:** Deterministische, verzerrungsfreie Filterung und Signalplanung.
 - **Komponenten:**
   - Statustrennung:
     - `processingRequested`: Nutzer hat Sonora aktiviert.
     - `processingAvailable`: Android erlaubt Audioeffekte auf Session 0 (`hasControl == true`).
     - `processingConfirmed`: Verifiziert über Effektstatus / Audio-Routing.
-  - NPU/GPU-DSP-Beschleunigung:
-    - Berechnung der FIR/IIR-Kompensationsmatrix und Filterkoeffizienten über Hardware-Beschleunigungspfade (`HardwareAccelerator`: Abfrage von NNAPI NPU Delegate, OpenCL / GPU Shader, Rückfall auf multithreaded Vector-CPU).
-    - Laufzeit- und Latenzbenchmarking mit ehrlicher Statusanzeige.
+  - DSP-Parameter werden aktuell in Kotlin auf der CPU berechnet.
+  - NNAPI ist seit Android 15 veraltet; eine spätere On-Device-ML-Funktion muss zuerst eine unterstützte Laufzeit wählen und den tatsächlich aktiven Delegate auf dem Galaxy A56 nachweisen, bevor eine NPU-/GPU-Nutzung beworben wird.
+  - Laufzeit wird nur als reale Messung ausgewiesen; kein fixer oder vorgetäuschter Benchmarkwert.
   - Numerischer Schutz:
     - Absoluter Schutz vor `Float.NaN`, `Float.POSITIVE_INFINITY`, `Float.NEGATIVE_INFINITY`.
     - Bounds-Checking für Bandindizes und Pegelbereiche (`-12.0f .. +12.0f dB`, Preamp `-12.0f .. +12.0f dB`).
@@ -102,25 +102,24 @@ Im Mittelpunkt stehen:
   - JSON-Export und Import mit Schema-Validierung (Schema v1 & v2).
   - Fehlertolerante Migration: Ungültige Importe brechen ab, ohne bestehende Daten zu verändern.
 
-### AP-AI-01: Entkoppeltes KI-Modul & Hardwarebeschleunigung
+### AP-AI-01: Entkoppeltes Offline-Regelmodul
 - **Ziel:** Saubere Trennung von Audio-DSP und KI-Beratung, Datenschutz-Garantie.
 - **Komponenten:**
   - `ai/AiProvider`: Abstraktes Interface für Klangkurven-Vorschläge.
-  - `LocalRuleAiProvider`: On-Device Regel- und Heuristik-Engine (offline, ohne Netzwerk).
+  - `LocalRuleAiProvider`: einfache feste Klangregeln (offline, ohne Netzwerk); kein lernendes Modell.
   - `ExternalAiClient`: Entkoppelte Schnittstelle für externe LLM-Provider (vorbereitet, standardmäßig deaktiviert, erfordert ausdrückliche Nutzerzustimmung, kein Audio-Streaming).
-  - `HardwareAccelerator`: Diagnostiziert Verfügbarkeit von NPU (über NNAPI / TFLite Delegate), GPU (GLES/Compute) und CPU.
-  - Vorschlags-Workflow: Schema-Validierung (Bänder, Ranges, Preamp), Vorschau, Vergleich gegen Ist-Zustand, Annahme oder Ablehnung.
+  - Der aktuelle Stand nutzt CPU-Berechnungen. Es gibt keine angebundene ML-Laufzeit, NPU- oder GPU-Inferenz.
+  - Vorschlags-Workflow: Schema-Validierung (Bänder, Wertebereiche, Preamp), Vorschau, Annahme oder Ablehnung; aktuell feste Offline-Regeln, kein ML-Modell.
   - Null-Audio-Datenschutz: Es werden ausschließlich Hörpräferenzen, Musikstil und Zielparameter übertragen — niemals Audiodaten.
 
 ### AP-UI-01: Google Stitch Design & Hero-UI-Architektur
-- **Ziel:** Vollständige Überarbeitung der Benutzeroberfläche basierend auf Google Stitch Prototyping mit edlem Hero-Design.
+- **Ziel:** Edle, leicht verständliche Compose-Oberfläche. Google-Stitch-MCP war im zuletzt geprüften Workspace nicht konfiguriert; deshalb wird kein Stitch-Export als erledigt behauptet.
 - **Gestaltungsgrundsätze:**
   - Premium Anthrazit/Kupfer/Graphit Palette.
   - Kein Glassmorphismus, kein Neomorphismus, keine leeren Zierbadges, keine Fake-Gradients.
   - Klares, funktionales Layout für Einhandbedienung auf dem Galaxy A56.
   - Barrierefreiheit: Mindestens 4.5:1 Textkontrast, 48 dp Minimum-Touch-Targets, Skalierbarkeit bis 200% Font-Scale ohne Clipping.
-- **Screens:**
-  1. `JetztScreen`: Hero-Status (Sonora Aktivitätsstatus, erkannter & gerouteter Audioausgang, echte Hardware-Effekt-Kontrolle, NPU/GPU Status, aktives Profil).
+- **Screens:**    1. `JetztScreen`: Status von Sonora, erkannter Audioausgang, verfügbare Android-Effektkontrolle und aktives Profil; keine unbestätigte NPU-/GPU-Anzeige.
   2. `KlangScreen`: Interaktiver Multi-Band-EQ (10/31/64 Bänder), Preamp, Limiter-Meter, A/B-Bypass.
   3. `RaumScreen`: Echte Raumklang-Modi, Intensität, DSP-Zustandsanzeige.
   4. `ProfileScreen`: Preset-Katalog, eigene Profile, Duplizieren, Umbenennen, JSON Import/Export.

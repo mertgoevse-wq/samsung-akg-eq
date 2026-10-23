@@ -2,6 +2,7 @@ package de.sonora.app.core
 
 import de.sonora.app.data.PresetCatalog
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -31,6 +32,7 @@ class PresetCatalogTest {
             assertTrue("Herkunft für ${preset.id} darf nicht leer sein", preset.origin.isNotBlank())
             assertTrue("Unsicherheit für ${preset.id} darf nicht leer sein", preset.uncertainty.isNotBlank())
             assertTrue("Grenzen für ${preset.id} darf nicht leer sein", preset.boundaryLimits.isNotBlank())
+            assertTrue("Vergleich für ${preset.id} muss in Klammern stehen", preset.comparison.startsWith("[") && preset.comparison.endsWith("]"))
             preset.levels.forEach { level ->
                 assertTrue("Level $level in ${preset.id} muss im Bereich ±12 dB liegen", level in -12f..12f)
             }
@@ -43,6 +45,15 @@ class PresetCatalogTest {
         assertNotNull(bass)
         assertTrue("Kräftiger Bass muss mindestens 2.5 dB Headroom-Abzug (Preamp <= -2.5) haben", bass!!.preampDb <= -2.5f)
         assertTrue("Subbass muss spürbar angehoben sein", bass.levels[0] >= 5.0f)
+    }
+
+    @Test
+    fun `Preset-Vergleiche behaupten keine lizenzierten oder echten Mehrkanalformate`() {
+        PresetCatalog.presets.forEach { preset ->
+            assertFalse("Preset ${preset.id} darf keinen Dolby-Codec behaupten", preset.comparison.contains("Dolby", ignoreCase = true))
+            assertFalse("Preset ${preset.id} darf kein Atmos behaupten", preset.comparison.contains("Atmos", ignoreCase = true))
+            assertFalse("Preset ${preset.id} darf kein echtes Mehrkanalformat behaupten", preset.comparison.contains("5.1", ignoreCase = true))
+        }
     }
 
     @Test

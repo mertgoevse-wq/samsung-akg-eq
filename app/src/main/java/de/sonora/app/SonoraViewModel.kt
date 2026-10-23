@@ -106,6 +106,9 @@ data class SonoraUiState(
     val activeProfileId: String = "neutral",
     val activeProfileName: String = "Neutral",
     val environment: EnvironmentReading? = null,
+    val playbackWaveform: List<Float> = emptyList(),
+    val playbackWaveformAvailable: Boolean = false,
+    val playbackVisualizationEnabled: Boolean = false,
     val autoAdjust: Boolean = false,
     val dirty: Boolean = false,
     val message: String? = null
@@ -155,6 +158,9 @@ class SonoraViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
     private var analyzer: EnvironmentAnalyzer? = null
+    private var playbackVisualizer: android.media.audiofx.Visualizer? = null
+    private var playbackVisualizationVisible = false
+    private var playbackVisualizerSessionId: Int? = null
     private var mediaWatcher: MediaWatcher? = null
     private var interviewStartedElapsedMs: Long? = null
     private var bypassed = false
@@ -491,15 +497,132 @@ class SonoraViewModel(application: Application) : AndroidViewModel(application) 
         analyzer = null
     }
 
-    fun refreshMicrophonePermission() {
-        if (uiState.autoAdjust && !hasMicPermission()) {
-            stopAnalyzer()
+    fun setPlaybackVisualizationEnabled(enabled: Boolean) {
+        playbackVisualizationVisible = enabled
+        if (!enabled) {
+            stopPlaybackVisualizer()
             uiState = uiState.copy(
-                autoAdjust = false,
-                environment = null,
-                message = "Mikrofonfreigabe wurde entzogen. Das gespeicherte Profil bleibt aktiv."
+                playbackWaveform = emptyList(),
+                playbackWaveformAvailable = false,
+                playbackVisualizationEnabled = false
             )
-            applyEffective()
+            return
+        }
+        if (playbackVisualizer == null) {
+            uiState = uiState.copy(
+                playbackWaveform = emptyList(),
+                playbackWaveformAvailable = false,
+                playbackVisualizationEnabled = false
+            )
+        }
+        if (!hasMicPermission()) {
+            playbackVisualizationVisible = false
+            uiState = uiState.copy(
+                playbackWaveform = emptyList(),
+                playbackWaveformAvailable = false,
+                playbackVisualizationEnabled = false,
+                message = "Für die Live-Wellenform ist die optionale Mikrofonfreigabe erforderlich."
+            )
+            return
+        }
+
+        // Session 0 is Android's global output mix; OEM and permission policy may still deny capture.
+        val activeSessionId = 0
+        if (playbackVisualizer != null && playbackVisualizerSessionId == activeSessionId) return
+        stopPlaybackVisualizer()
+        var visualizer: android.media.audiofx.Visualizer? = null
+        try {
+            visualizer = android.media.audiofx.Visualizer(activeSessionId)
+            visualizer.captureSize = android.media.audiofx.Visualizer.getCaptureSizeRange()[1]
+            visualizer.setDataCaptureListener(
+                object : android.media.audiofx.Visualizer.OnDataCaptureListener {
+                    override fun onWaveFormDataCapture(
+                        effect: android.media.audiofx.Visualizer,
+                        waveform: ByteArray,
+                        samplingRate: Int
+                    ) {
+                        val samples = waveform.map { ((it.toInt() and 0xFF) - 128) / 128f }
+                        mainHandler.post {
+                            if (playbackVisualizer === effect) {
+                                uiState = uiState.copy(
+                                    playbackWaveform = samples,
+                                    playbackWaveformAvailable = samples.any { kotlin.math.abs(it) > 0.02f }
+                                )
+                            }
+                        }
+                    }
+
+                    override fun onFftDataCapture(
+                        effect: android.media.audiofx.Visualizer,
+                        fft: ByteArray,
+                        samplingRate: Int
+                    ) = Unit
+                },
+                android.media.audiofx.Visualizer.getMaxCaptureRate() / 2,
+                true,
+                false
+            )
+            visualizer.enabled = true
+            playbackVisualizer = visualizer
+            playbackVisualizerSessionId = activeSessionId
+            uiState = uiState.copy(playbackVisualizationEnabled = true, playbackWaveformAvailable = false)
+        } catch (_: SecurityException) {
+            try { visualizer?.release() } catch (_: RuntimeException) {}
+            playbackVisualizer = null
+            playbackVisualizerSessionId = null
+            playbackVisualizationVisible = false
+            uiState = uiState.copy(
+                playbackWaveform = emptyList(),
+                playbackWaveformAvailable = false,
+                playbackVisualizationEnabled = false,
+                message = "Android hat den Zugriff auf die Wiedergabe-Wellenform nicht freigegeben."
+            )
+        } catch (_: RuntimeException) {
+            try { visualizer?.release() } catch (_: RuntimeException) {}
+            playbackVisualizer = null
+            playbackVisualizerSessionId = null
+            playbackVisualizationVisible = false
+            uiState = uiState.copy(
+                playbackWaveform = emptyList(),
+                playbackWaveformAvailable = false,
+                playbackVisualizationEnabled = false
+            )
+        }
+    }
+
+    private fun stopPlaybackVisualizer() {
+        playbackVisualizer?.let { visualizer ->
+            try {
+                visualizer.enabled = false
+            } catch (_: RuntimeException) {
+            }
+            try {
+                visualizer.release()
+            } catch (_: RuntimeException) {
+            }
+        }
+        playbackVisualizer = null
+        playbackVisualizerSessionId = null
+    }
+
+    fun refreshMicrophonePermission() {
+        if (!hasMicPermission()) {
+            stopAnalyzer()
+            stopPlaybackVisualizer()
+            if (uiState.autoAdjust || uiState.playbackVisualizationEnabled || uiState.playbackWaveformAvailable) {
+                uiState = uiState.copy(
+                    autoAdjust = false,
+                    environment = null,
+                    playbackWaveform = emptyList(),
+                    playbackWaveformAvailable = false,
+                    playbackVisualizationEnabled = false,
+                    message = "Mikrofonfreigabe wurde entzogen. Das gespeicherte Profil bleibt aktiv."
+                )
+                applyEffective()
+            }
+            playbackVisualizationVisible = false
+        } else {
+            if (uiState.autoAdjust && analyzer == null) startAnalyzer()
         }
     }
 
@@ -616,10 +739,10 @@ class SonoraViewModel(application: Application) : AndroidViewModel(application) 
         val current = uiState.profiles.firstOrNull { it.id == uiState.activeProfileId } ?: return
         uiState = uiState.copy(aiLoading = true, aiPreferences = preference)
         viewModelScope.launch {
-            val noiseDb = uiState.environment?.let { if (it.level == 2) 75f else 50f }
+            val measuredNoiseDbfs = uiState.environment?.rmsDb
             val request = AiAdviceRequest(
                 preferences = preference,
-                currentNoiseLevelDb = noiseDb,
+                currentNoiseLevelDb = measuredNoiseDbfs,
                 consentGiven = true
             )
             val result = localAiProvider.generateSuggestion(request, current)
@@ -675,6 +798,15 @@ class SonoraViewModel(application: Application) : AndroidViewModel(application) 
         )
         val mediaOptIn = getApplication<Application>().getSharedPreferences("sonora_media_v1", 0).getBoolean("enabled", false)
         refreshMicrophonePermission()
+        if (playbackVisualizationVisible) setPlaybackVisualizationEnabled(true)
+        else if (uiState.playbackVisualizationEnabled) {
+            stopPlaybackVisualizer()
+            uiState = uiState.copy(
+                playbackWaveform = emptyList(),
+                playbackWaveformAvailable = false,
+                playbackVisualizationEnabled = false
+            )
+        }
         if (mediaOptIn != uiState.mediaEnabled) setMediaEnabled(mediaOptIn)
         else if (uiState.mediaRequested || mediaOptIn) refreshMediaPermission()
     }
@@ -682,6 +814,14 @@ class SonoraViewModel(application: Application) : AndroidViewModel(application) 
     fun onActivityStopped() {
         if (uiState.blindTestActive) cancelBlindTest()
         if (bypassed) endBypass()
+        val resumeVisualization = playbackVisualizationVisible
+        stopPlaybackVisualizer()
+        uiState = uiState.copy(
+            playbackWaveform = emptyList(),
+            playbackWaveformAvailable = false,
+            playbackVisualizationEnabled = false
+        )
+        playbackVisualizationVisible = resumeVisualization
         mediaWatcher?.stop()
         mediaWatcher = null
     }
@@ -997,6 +1137,8 @@ class SonoraViewModel(application: Application) : AndroidViewModel(application) 
     ) == PackageManager.PERMISSION_GRANTED
 
     override fun onCleared() {
+        playbackVisualizationVisible = false
+        stopPlaybackVisualizer()
         routingManager.unregister()
         mainHandler.removeCallbacksAndMessages(null)
         if (bypassed) endBypass()

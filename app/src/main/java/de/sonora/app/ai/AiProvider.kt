@@ -1,6 +1,5 @@
 package de.sonora.app.ai
 
-import de.sonora.app.audio.dsp.HardwareDspAccelerator
 import de.sonora.app.core.BandCount
 import de.sonora.app.core.EqCurve
 import de.sonora.app.data.SoundProfile
@@ -18,8 +17,8 @@ interface AiProvider {
 }
 
 /**
- * On-device heuristic AI recommendation engine. Operates 100% offline without
- * network, utilizing local rule synthesis and the hardware DSP accelerator.
+ * On-device rule-based recommendation engine. Operates fully offline and does
+ * not run a machine-learning model or use an NPU/GPU inference delegate.
  */
 class LocalRuleAiProvider : AiProvider {
 
@@ -80,9 +79,18 @@ class LocalRuleAiProvider : AiProvider {
         }
 
         // Environment adaptation (if noise measurement provided)
-        request.currentNoiseLevelDb?.let { noise ->
-            if (noise > 68f) { // Loud ambient noise
-                baseLevels[0] += 2.0f; baseLevels[1] += 1.5f; baseLevels[5] += 1.5f
+        request.currentNoiseLevelDb?.let { noiseDbfs ->
+            // EnvironmentAnalyzer reports dBFS (roughly -90..0), not calibrated dB SPL.
+            // Use its measured three-stage classification as a conservative proxy only.
+            when {
+                noiseDbfs >= -25f -> {
+                    baseLevels[0] += 1.0f
+                    baseLevels[1] += 0.5f
+                    baseLevels[5] += 1.0f
+                }
+                noiseDbfs >= -45f -> {
+                    baseLevels[5] += 0.5f
+                }
             }
         }
 
@@ -110,7 +118,6 @@ class LocalRuleAiProvider : AiProvider {
             )
         }
 
-        val hwState = HardwareDspAccelerator.getHardwareState()
         val durationMicros = (System.nanoTime() - startNano) / 1000L
 
         val suggestion = AiSuggestion(
@@ -119,11 +126,11 @@ class LocalRuleAiProvider : AiProvider {
             bandCount = targetCount,
             levelsDb = interpolated,
             preampDb = preampDb,
-            confidence = 0.92f,
-            modelIdentifier = "Sonora-OnDevice-Heuristics",
+            confidence = 0f,
+            modelIdentifier = "Sonora-Regelvorschlag",
             modelVersion = version,
-            backendUsed = hwState.backendName,
-            latencyMicros = durationMicros.coerceAtLeast(18L),
+            backendUsed = "Lokale Regeln (CPU)",
+            latencyMicros = durationMicros,
             validationStatus = validation
         )
 

@@ -60,7 +60,7 @@ class AiModuleTest {
     }
 
     @Test
-    fun `LocalRuleAiProvider erzeugt offline eine valide Zielkurve mit NPU-Metadaten`() = runBlocking {
+    fun `LocalRuleAiProvider erzeugt offline eine valide Zielkurve ohne unbelegte Modellangaben`() = runBlocking {
         val provider = LocalRuleAiProvider()
         val request = AiAdviceRequest(
             preferences = HearingPreference(
@@ -79,9 +79,36 @@ class AiModuleTest {
         val suggestion = (result as AiAdviceResult.Success).suggestion
         assertEquals(10, suggestion.levelsDb.size)
         assertTrue("ValidationStatus muss gültig sein", suggestion.validationStatus.isValid)
-        assertTrue("Backend muss dokumentiert sein", suggestion.backendUsed.isNotBlank())
-        assertTrue("Latenz muss größer 0 sein", suggestion.latencyMicros > 0)
-        assertTrue("Konfidenz muss hoch sein", suggestion.confidence >= 0.8f)
+        assertEquals("Lokale Regeln (CPU)", suggestion.backendUsed)
+        assertTrue("Latenz ist eine direkte Laufzeitmessung", suggestion.latencyMicros >= 0)
+        assertEquals("Regelbasierter Vorschlag gibt keine Modell-Konfidenz vor", 0f, suggestion.confidence, 0f)
+        assertTrue("Das Profil benennt sich als Regelvorschlag", suggestion.modelIdentifier.contains("Regel"))
+    }
+
+    @Test
+    fun `LocalRuleAiProvider behandelt Mikrofonpegel als dBFS statt als dB SPL`() = runBlocking {
+        val provider = LocalRuleAiProvider()
+        val preference = HearingPreference(
+            genre = "Allround",
+            bassPreference = "Ausgewogen",
+            speechClarity = "Normal",
+            listeningEnvironment = "Ruhig"
+        )
+
+        val quiet = provider.generateSuggestion(
+            AiAdviceRequest(preference, currentNoiseLevelDb = -60f), sampleProfile
+        ) as AiAdviceResult.Success
+        val moderate = provider.generateSuggestion(
+            AiAdviceRequest(preference, currentNoiseLevelDb = -35f), sampleProfile
+        ) as AiAdviceResult.Success
+        val loud = provider.generateSuggestion(
+            AiAdviceRequest(preference, currentNoiseLevelDb = -20f), sampleProfile
+        ) as AiAdviceResult.Success
+
+        assertEquals(quiet.suggestion.levelsDb[0], moderate.suggestion.levelsDb[0], 0f)
+        assertEquals(0.5f, moderate.suggestion.levelsDb[5] - quiet.suggestion.levelsDb[5], 0.001f)
+        assertEquals(1f, loud.suggestion.levelsDb[0] - quiet.suggestion.levelsDb[0], 0.001f)
+        assertEquals(1f, loud.suggestion.levelsDb[5] - quiet.suggestion.levelsDb[5], 0.001f)
     }
 
     @Test

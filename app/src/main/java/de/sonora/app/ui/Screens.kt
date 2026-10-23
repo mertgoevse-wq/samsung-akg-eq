@@ -11,6 +11,9 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -64,6 +67,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -74,6 +80,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -228,7 +235,7 @@ fun OnboardingScreen(vm: SonoraViewModel) {
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = "Sonora ersetzt standardmäßige Samsung-Klangbeschränkungen durch direkte Signalentzerrung, wo Android es zulässt. Alle Berechnungen laufen 100 % lokal auf NPU, GPU und CPU.",
+                        text = "Sonora passt den Klang dort an, wo Android den Audioeffekt freigibt. Klangvorschläge entstehen lokal aus festen Regeln; ein lernendes Modell sowie NPU-/GPU-Beschleunigung sind derzeit nicht eingebunden.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = Muted
                     )
@@ -261,7 +268,7 @@ fun OnboardingScreen(vm: SonoraViewModel) {
                             Spacer(Modifier.height(6.dp))
                             Text(status.details, style = MaterialTheme.typography.bodySmall, color = Muted)
                             Spacer(Modifier.height(6.dp))
-                            Text("Referenzhörer angeschlossen. Alle Profile sind auf diese Treibereigenschaften optimiert.", style = MaterialTheme.typography.bodyMedium, color = Paper)
+                            Text("Modell erkannt. Die Presets sind nicht individuell auf diesen Hörer eingemessen.", style = MaterialTheme.typography.bodyMedium, color = Paper)
                         }
                         is HeadphoneModelStatus.GenericUsbOutput -> {
                             Text(status.message, style = MaterialTheme.typography.titleMedium, color = Paper)
@@ -294,8 +301,8 @@ fun OnboardingScreen(vm: SonoraViewModel) {
                 Text("Berechtigungen & Kontrolle", style = MaterialTheme.typography.titleLarge, color = Paper)
                 Spacer(Modifier.height(14.dp))
                 PermissionCard(
-                    title = "Mikrofon (Lautstärkemessung)",
-                    body = "Misst ausschließlich Umgebungspegel (dBFS) zur dynamischen Kurvenanpassung. Kein Audio wird aufgezeichnet oder gesendet.",
+                    title = "Umgebungsmessung (Mikrofon)",
+                    body = "Misst den Umgebungspegel zur EQ-Anpassung. Das ist keine aktive Geräuschunterdrückung.",
                     granted = micGranted,
                     actionLabel = "Freigeben",
                     onAction = { micLauncher.launch(Manifest.permission.RECORD_AUDIO) }
@@ -360,6 +367,79 @@ private fun PermissionCard(
     }
 }
 
+@Composable
+private fun PlaybackWaveformCard(
+    state: SonoraUiState,
+    onEnabledChange: (Boolean) -> Unit
+) {
+    SectionCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Live-Wellenform", style = MaterialTheme.typography.titleMedium, color = Paper)
+                Text("Zeigt den hörbaren Systemausgang. Android braucht dafür die Mikrofonfreigabe.", style = MaterialTheme.typography.bodySmall, color = Muted)
+            }
+            val context = LocalContext.current
+            Switch(
+                checked = state.playbackVisualizationEnabled,
+                enabled = state.playbackVisualizationEnabled || hasPermission(context, Manifest.permission.RECORD_AUDIO),
+                onCheckedChange = onEnabledChange,
+                modifier = Modifier.semantics {
+                    role = Role.Switch
+                    contentDescription = "Live-Wellenform für den Audioausgang"
+                }
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        if (state.playbackVisualizationEnabled && state.playbackWaveformAvailable && state.playbackWaveform.isNotEmpty()) {
+            Canvas(
+                Modifier
+                    .fillMaxWidth()
+                    .height(88.dp)
+                    .animateContentSize()
+                    .semantics { contentDescription = "Live-Wellenform der laufenden Wiedergabe" }
+            ) {
+                val samples = state.playbackWaveform
+                val middle = size.height / 2f
+                val path = Path()
+                samples.forEachIndexed { index, sample ->
+                    val x = size.width * index / (samples.size - 1).coerceAtLeast(1)
+                    val y = middle - sample.coerceIn(-1f, 1f) * middle * 0.85f
+                    if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                }
+                drawLine(
+                    color = DividerColor,
+                    start = Offset(0f, middle),
+                    end = Offset(size.width, middle),
+                    strokeWidth = 1.dp.toPx()
+                )
+                drawPath(
+                    path = path,
+                    color = Copper,
+                    style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+                )
+            }
+            Text(
+                if (state.playbackWaveform.any { kotlin.math.abs(it) > 0.02f }) "Systemausgang wird visualisiert" else "Warte auf hörbares Audiosignal …",
+                style = MaterialTheme.typography.bodySmall,
+                color = Muted
+            )
+        } else if (!state.playbackVisualizationEnabled) {
+            val context = LocalContext.current
+            Text(
+                if (hasPermission(context, Manifest.permission.RECORD_AUDIO)) "Ausgeschaltet. Sonora liest kein Audiosignal mit, bis du die Visualisierung einschaltest." else "Mikrofonfreigabe fehlt. Du kannst sie unter Mehr freigeben; die Visualisierung bleibt optional.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Muted
+            )
+        } else {
+            Text(
+                "Warte auf laufende Wiedergabe. Android gibt die Wellenform gegebenenfalls nicht frei.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Muted
+            )
+        }
+    }
+}
+
 // ---------------------------------------------------------------- Jetzt (Dashboard)
 
 @Composable
@@ -402,7 +482,7 @@ fun HomeScreen(vm: SonoraViewModel) {
             )
         }
 
-        // Section 2: Audio-Engine & NPU/GPU Hardware Acceleration Card
+        // Section 2: Audio engine status card
         item {
             EngineAndHardwareCard(
                 engineStatus = state.engineStatus,
@@ -430,7 +510,15 @@ fun HomeScreen(vm: SonoraViewModel) {
             }
         }
 
-        // Section 5: Ambient Environment
+        // Section 5: Playback visualizer
+        item {
+            PlaybackWaveformCard(
+                state = state,
+                onEnabledChange = vm::setPlaybackVisualizationEnabled
+            )
+        }
+
+        // Section 6: Ambient Environment
         item {
             EnvironmentHeroCard(
                 state = state,
@@ -438,7 +526,7 @@ fun HomeScreen(vm: SonoraViewModel) {
             )
         }
 
-        // Section 6: Now Playing Card
+        // Section 7: Now Playing Card
         state.nowPlaying?.let { now ->
             item {
                 SectionCard {
@@ -450,7 +538,7 @@ fun HomeScreen(vm: SonoraViewModel) {
             }
         }
 
-        // Section 7: Hearing Safety Guard Reminder
+        // Section 8: Hearing Safety Guard Reminder
         if (state.volumeState.reminderDue) {
             item {
                 HearingGuardCard(
@@ -461,7 +549,7 @@ fun HomeScreen(vm: SonoraViewModel) {
             }
         }
 
-        // Section 8: Quick Action Hub
+        // Section 9: Quick Action Hub
         item {
             ActionHubCard(
                 onStartTest = vm::startBlindTest,
@@ -591,7 +679,7 @@ private fun EngineAndHardwareCard(
 ) {
     SectionCard {
         Text(
-            text = "Klang-Engine & Beschleunigung",
+            text = "Klang-Engine",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             color = Paper
@@ -606,6 +694,7 @@ private fun EngineAndHardwareCard(
                 DiagnosticRow("Systemausgang (Session 0)", "Bestätigt (${engineStatus.bands} Bänder)")
                 DiagnosticRow("Verarbeitung angefordert", if (engineStatus.processingRequested) "Ja" else "Nein")
                 DiagnosticRow("Audioeffekt-Kontrolle", if (engineStatus.processingAvailable) "Freigegeben" else "Verweigert")
+                Text("Effekt-Session ist aktiv; eine hörbare Wirkung in allen Apps ist dadurch nicht garantiert.", style = MaterialTheme.typography.bodySmall, color = Muted)
             }
             is EngineStatus.Unavailable -> {
                 DiagnosticRow("Systemausgang", "Nicht verfügbar")
@@ -631,9 +720,7 @@ private fun EngineAndHardwareCard(
         HorizontalDivider(color = DividerColor)
         Spacer(Modifier.height(4.dp))
 
-        // Hardware Acceleration info
-        DiagnosticRow("Rechenpfad", hwState.backendName)
-        DiagnosticRow("Inferenz-/DSP-Latenz", "${hwState.latencyMicros} µs")
+        DiagnosticRow("Lokale Berechnung", hwState.backendName)
         Text(
             text = hwState.details,
             style = MaterialTheme.typography.bodySmall,
@@ -697,7 +784,7 @@ private fun AiSuggestionBanner(
         Text(suggestion.explanation, style = MaterialTheme.typography.bodyMedium, color = Muted)
         Spacer(Modifier.height(8.dp))
         DiagnosticRow("Preamp / Headroom", String.format(Locale.GERMAN, "%.1f dB", suggestion.preampDb))
-        DiagnosticRow("Rechenpfad", "${suggestion.backendUsed} (${suggestion.latencyMicros} µs)")
+        DiagnosticRow("Erstellt mit", suggestion.backendUsed)
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Button(
@@ -718,23 +805,36 @@ private fun EnvironmentHeroCard(
     state: SonoraUiState,
     onAutoAdjust: (Boolean) -> Unit
 ) {
+    val context = LocalContext.current
+    val microphoneLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) onAutoAdjust(true)
+    }
     SectionCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Umgebungsanpassung", style = MaterialTheme.typography.labelMedium, color = Muted)
                 Spacer(Modifier.height(2.dp))
+                AnimatedContent(
+                    targetState = environmentLabel(state.environment?.level),
+                    label = "Umgebungspegel"
+                ) { label ->
+                    Text(label, style = MaterialTheme.typography.titleMedium, color = Paper)
+                }
                 Text(
-                    text = environmentLabel(state.environment?.level),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Paper
-                )
-                Text(
-                    text = if (state.autoAdjust) "Automatische Anpassung aktiv (lokale Pegelmessung)" else "Manuelle Regelung fest eingestellt",
+                    text = if (state.autoAdjust) "EQ passt den Klang an die gemessene Umgebungslautstärke an. Keine Geräuschunterdrückung." else "EQ bleibt unverändert.",
                     style = MaterialTheme.typography.bodySmall,
                     color = Muted
                 )
             }
-            Switch(checked = state.autoAdjust, onCheckedChange = onAutoAdjust)
+            Switch(checked = state.autoAdjust, onCheckedChange = { enabled ->
+                if (enabled && !hasPermission(context, Manifest.permission.RECORD_AUDIO)) {
+                    microphoneLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                } else {
+                    onAutoAdjust(enabled)
+                }
+            })
         }
     }
 }
@@ -811,14 +911,12 @@ fun AiAdvisorDialog(
     var genre by remember { mutableStateOf("Rock") }
     var bass by remember { mutableStateOf("Ausgewogen") }
     var speech by remember { mutableStateOf("Normal") }
-    var env by remember { mutableStateOf("Ruhig") }
-
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("KI-Klangberater (Lokal)", color = Paper) },
+        title = { Text("Klangvorschlag", color = Paper) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text("Wähle deine aktuellen Hörpräferenzen. Die lokale Heuristik-Engine synthetisiert daraus eine optimierte Zielkurve:", style = MaterialTheme.typography.bodySmall, color = Muted)
+                Text("Ein paar Antworten helfen Sonora, einen passenden EQ-Vorschlag aus festen Klangregeln zu erstellen. Das ist kein lernendes Modell.", style = MaterialTheme.typography.bodySmall, color = Muted)
                 Spacer(Modifier.height(12.dp))
 
                 Text("Genre:", style = MaterialTheme.typography.labelMedium, color = Copper)
@@ -860,13 +958,13 @@ fun AiAdvisorDialog(
                 }
 
                 Spacer(Modifier.height(14.dp))
-                Text("100 % On-Device Inferenz. Es werden keine Audiodaten versendet.", style = MaterialTheme.typography.bodySmall, color = Muted)
+                Text("Alles bleibt auf dem Gerät. Sonora zeichnet hier kein Audio auf.", style = MaterialTheme.typography.bodySmall, color = Muted)
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    onRequest(HearingPreference(genre, bass, speech, env))
+                    onRequest(HearingPreference(genre, bass, speech, "Ruhig"))
                 },
                 modifier = Modifier.heightIn(min = 48.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Copper, contentColor = Ink)
@@ -1277,7 +1375,7 @@ private fun PresetDetailCard(
     SectionCard(borderColor = if (isActive) Copper else CardBorder) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(preset.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Paper)
+                Text("${preset.name} ${preset.comparison}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Paper)
                 Spacer(Modifier.height(2.dp))
                 Text(preset.description, style = MaterialTheme.typography.bodySmall, color = Muted)
             }
@@ -1328,19 +1426,33 @@ fun SettingsScreen(vm: SonoraViewModel) {
         item {
             Column {
                 Text("Mehr & Diagnose", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Paper)
-                Text("Hardware, Berechtigungen und Systemausgang-Diagnose", style = MaterialTheme.typography.bodySmall, color = Muted)
+                Text("Gerät, Mikrofonfreigabe und Audioausgang", style = MaterialTheme.typography.bodySmall, color = Muted)
+            }
+        }
+
+        item {
+            SectionCard {
+                Text("Was macht Sonora?", style = MaterialTheme.typography.titleMedium, color = Paper)
+                Spacer(Modifier.height(6.dp))
+                Text("Sonora passt Equalizer und verfügbare Audioeffekte an. Es leitet Musik nicht durch einen eigenen Player.", style = MaterialTheme.typography.bodySmall, color = Muted)
+                Spacer(Modifier.height(4.dp))
+                Text("Umgebungsanpassung verändert den EQ nach einer Lautstärkemessung. Sie entfernt keine Geräusche wie ANC-Kopfhörer.", style = MaterialTheme.typography.bodySmall, color = Muted)
+                Spacer(Modifier.height(4.dp))
+                Text("Umgebungsanpassung und Live-Wellenform sind optionale Funktionen. Sie brauchen Mikrofonfreigabe und lassen sich jederzeit wieder ausschalten.", style = MaterialTheme.typography.bodySmall, color = Muted)
             }
         }
 
         // Hardware details
         item {
             SectionCard {
-                Text("NPU / GPU Hardware-Beschleunigung", style = MaterialTheme.typography.titleMedium, color = Paper)
+                Text("Berechnung auf diesem Gerät", style = MaterialTheme.typography.titleMedium, color = Paper)
                 Spacer(Modifier.height(6.dp))
-                DiagnosticRow("Aktiver Beschleuniger", state.hardwareState.backendName)
-                DiagnosticRow("Hardware-Beschleunigt", if (state.hardwareState.isHardwareAccelerated) "Ja" else "Nein (Vectorized CPU)")
-                DiagnosticRow("Latenzmessung", "${state.hardwareState.latencyMicros} µs")
-                DiagnosticRow("Details", state.hardwareState.details)
+                DiagnosticRow("Aktueller Rechenweg", state.hardwareState.backendName)
+                DiagnosticRow("Hardware-Beschleunigung", if (state.hardwareState.isHardwareAccelerated) "Verifiziert aktiv" else "Nicht eingebunden")
+                DiagnosticRow("Berechnung gemessen", if (state.hardwareState.latencyMicros > 0) "${state.hardwareState.latencyMicros} µs" else "Noch keine Messung")
+                Text(state.hardwareState.details, style = MaterialTheme.typography.bodySmall, color = Muted)
+                Spacer(Modifier.height(8.dp))
+                Text("Der Klangberater verwendet feste Regeln: kein lernendes KI-Modell und keine NPU-/GPU-Verarbeitung.", style = MaterialTheme.typography.bodySmall, color = Muted)
             }
         }
 
@@ -1364,8 +1476,8 @@ fun SettingsScreen(vm: SonoraViewModel) {
         // Berechtigungen
         item {
             RuntimePermissionCard(
-                title = "Mikrofon (Lautstärkemessung)",
-                body = "Für die dynamische Umgebungspegelmessung. Keine Audioaufzeichnung.",
+                title = "Umgebungsmessung (Mikrofon)",
+                body = "Misst den Umgebungspegel zur EQ-Anpassung. Das ist keine aktive Geräuschunterdrückung.",
                 permission = Manifest.permission.RECORD_AUDIO,
                 onGrantedChange = { micGranted = it }
             )
@@ -1385,9 +1497,9 @@ fun SettingsScreen(vm: SonoraViewModel) {
         // Hörschutz & Hintergrunddienst
         item {
             SectionCard {
-                Text("Hintergrunddienst & Prozesskontrolle", style = MaterialTheme.typography.titleMedium, color = Paper)
+                Text("Hintergrunddienst", style = MaterialTheme.typography.titleMedium, color = Paper)
                 Spacer(Modifier.height(6.dp))
-                Text("Hält die Audio-Effekt-Session im Hintergrund aktiv.", style = MaterialTheme.typography.bodySmall, color = Muted)
+                Text("Hält den verfügbaren Android-Audioeffekt im Hintergrund aktiv.", style = MaterialTheme.typography.bodySmall, color = Muted)
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Button(onClick = vm::startService, modifier = Modifier.heightIn(min = 48.dp)) { Text("Starten") }

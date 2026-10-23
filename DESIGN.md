@@ -1,6 +1,5 @@
 # Design System: Sonora
-**Project ID:** Google Stitch Projekt `17216265226395693672` (`Sonora — Premium Hero Sound Studio`), Design-System `assets/17775038923923443825`.
-Designgrundlage sind die Stitch-Spezifikation, `Theme.kt`, `Screens.kt`, `SpatialScreen.kt` und die UX-Spezifikation v0.2.
+**Status:** Vorhandene Compose-Oberfläche und lokale Tokens geprüft. Ein Google-Stitch-MCP-Server war in der Entwicklungsumgebung nicht konfiguriert; dieses Dokument beschreibt deshalb das implementierte Design, nicht einen neu generierten Stitch-Export.
 
 ## 1. Visual Theme & Atmosphere
 
