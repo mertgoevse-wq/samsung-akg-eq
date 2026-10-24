@@ -25,6 +25,7 @@ import de.sonora.app.audio.AudioRoutingManager
 import de.sonora.app.audio.EngineStatus
 import de.sonora.app.audio.EnvironmentAnalyzer
 import de.sonora.app.audio.EnvironmentReading
+import de.sonora.app.visualizer.FftReducer
 import de.sonora.app.audio.MediaWatcher
 import de.sonora.app.audio.SonoraEngine
 import de.sonora.app.audio.dsp.DspHardwareState
@@ -109,6 +110,7 @@ data class SonoraUiState(
     val playbackWaveform: List<Float> = emptyList(),
     val playbackWaveformAvailable: Boolean = false,
     val playbackVisualizationEnabled: Boolean = false,
+    val playbackSpectrum: List<Float> = emptyList(),
     val autoAdjust: Boolean = false,
     val dirty: Boolean = false,
     val message: String? = null
@@ -556,11 +558,18 @@ class SonoraViewModel(application: Application) : AndroidViewModel(application) 
                         effect: android.media.audiofx.Visualizer,
                         fft: ByteArray,
                         samplingRate: Int
-                    ) = Unit
+                    ) {
+                        val bands = FftReducer.reduce(fft, null, samplingRate / 1000)
+                        mainHandler.post {
+                            if (playbackVisualizer === effect) {
+                                uiState = uiState.copy(playbackSpectrum = bands.toList())
+                            }
+                        }
+                    }
                 },
                 android.media.audiofx.Visualizer.getMaxCaptureRate() / 2,
                 true,
-                false
+                true
             )
             visualizer.enabled = true
             playbackVisualizer = visualizer
