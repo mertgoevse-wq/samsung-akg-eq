@@ -64,3 +64,22 @@ Verwende Material-Theme-Typografie statt ad hoc gesetzter Größen. Schreibe in 
 - **Lange Listen:** Gleichartige Modus- und Profilzeilen werden vertikal gescrollt. Frequenz- und Moduslisten dürfen wachsen, ohne den Bildschirm zu überladen.
 - **Barrierefreiheit:** Interaktive Trefferflächen mindestens 48 dp, Regler mit Namen und Wert, und Status nie ausschließlich über Farbe vermitteln. Systemschriftvergrößerung darf nicht zu abgeschnittenen Texten führen.
 - **Tiefe und Bewegung:** Funktionale Ebenen entstehen primär durch geringe Helligkeitsunterschiede der Flächen, nicht durch Schatten oder Verläufe. Animationen sollen nur direkte Aktionsrückmeldung geben; die UX-Spezifikation nennt 120–180 ms als Zielbereich und lehnt permanente Dekoration ab.
+
+## 6. Particle Field & Touch-DSP Interaction Architecture
+
+Sonora ersetzt herkömmliche, starre Wellenform-Oszilloskope durch ein physikalisch gekoppeltes, audioreaktives Partikelfeld:
+
+- **Anti-AI-Slop-Fundament:** Keine bloßen Zufallsgeneratoren oder dekorative Partikelstürme. Jede Bewegung wird von den 8 logarithmischen Frequenzbändern der Echtzeit-FFT angetrieben.
+- **Drei charakteristische Modi:**
+  1. **Konstellation:** Organisches Netzwerk aus elastisch gekoppelten Knoten. Subtile Kupfer-Verbindungslinien (`#C98B5E`) visualisieren die harmonische Resonanz zwischen Frequenzbändern.
+  2. **Wirbel:** Akustischer Orbitalwirbel um den zentralen Bass-Puls.
+  3. **Spektralwelle:** Horizontale, zweischichtige stehende Raumwelle für tonale Amplitudenanalyse.
+- **Echte Touch-to-Sound XY-Steuerung:**
+  - Der Benutzer kann das Partikelfeld mit dem Finger berühren und modulieren.
+  - Horizontale Fingerbewegung (X): Steuert die Modulationsrate des Flanger-LFOs (0.15 Hz bis 4.0 Hz).
+  - Vertikale Fingerbewegung (Y): Steuert Modulationstiefe (20–100%) und Resonanz-Feedback (0–85%).
+  - Live HUD-Overlay zeigt taktile Echtzeitwerte ohne visuelle Überladung an.
+  - Klickfreie Parameterübergänge durch exponentielles One-Pole Smoothing im DSP-Kern (`FlangerDsp`).
+- **Integrität des Signalwegs (Sound Lab):**
+  - Der interaktive Flanger wirkt auf Sonoras internen PCM-Audiopfad (`SoundLabEngine` mit Synthesizer-Akkord, Rosa Rauschen und akustischen Impulsen).
+  - Ehrliche Kennzeichnung: Externe Musik-Apps (wie Spotify) unterliegen den Android-Sicherheitsrestriktionen und werden visualisiert, aber nicht als modulierbar vorgetäuscht.
