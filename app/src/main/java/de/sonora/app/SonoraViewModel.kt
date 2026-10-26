@@ -25,7 +25,9 @@ import de.sonora.app.audio.AudioRoutingManager
 import de.sonora.app.audio.EngineStatus
 import de.sonora.app.audio.EnvironmentAnalyzer
 import de.sonora.app.audio.EnvironmentReading
+import de.sonora.app.audio.SoundLabEngine
 import de.sonora.app.visualizer.FftReducer
+import de.sonora.app.ui.visualizer.ParticleMode
 import de.sonora.app.audio.MediaWatcher
 import de.sonora.app.audio.SonoraEngine
 import de.sonora.app.audio.dsp.DspHardwareState
@@ -111,6 +113,12 @@ data class SonoraUiState(
     val playbackWaveformAvailable: Boolean = false,
     val playbackVisualizationEnabled: Boolean = false,
     val playbackSpectrum: List<Float> = emptyList(),
+    val particleMode: de.sonora.app.ui.visualizer.ParticleMode = de.sonora.app.ui.visualizer.ParticleMode.CONSTELLATION,
+    val soundLabActive: Boolean = false,
+    val soundLabSignal: de.sonora.app.audio.SoundLabEngine.SignalType = de.sonora.app.audio.SoundLabEngine.SignalType.WARM_SYNTH_CHORD,
+    val flangerRateHz: Float = 0.5f,
+    val flangerDepth: Float = 0.7f,
+    val flangerFeedback: Float = 0.6f,
     val autoAdjust: Boolean = false,
     val dirty: Boolean = false,
     val message: String? = null
@@ -163,6 +171,7 @@ class SonoraViewModel(application: Application) : AndroidViewModel(application) 
     private var playbackVisualizer: android.media.audiofx.Visualizer? = null
     private var playbackVisualizationVisible = false
     private var playbackVisualizerSessionId: Int? = null
+    private var lastSmoothedFftBands: FloatArray? = null
     private var mediaWatcher: MediaWatcher? = null
     private var interviewStartedElapsedMs: Long? = null
     private var bypassed = false
@@ -559,7 +568,12 @@ class SonoraViewModel(application: Application) : AndroidViewModel(application) 
                         fft: ByteArray,
                         samplingRate: Int
                     ) {
-                        val bands = FftReducer.reduce(fft, null, samplingRate / 1000)
+                        val bands = FftReducer.reduce(
+                            fft = fft,
+                            previous = lastSmoothedFftBands,
+                            sampleRateHz = samplingRate / 1000
+                        )
+                        lastSmoothedFftBands = bands
                         mainHandler.post {
                             if (playbackVisualizer === effect) {
                                 uiState = uiState.copy(playbackSpectrum = bands.toList())
@@ -612,6 +626,50 @@ class SonoraViewModel(application: Application) : AndroidViewModel(application) 
         }
         playbackVisualizer = null
         playbackVisualizerSessionId = null
+        lastSmoothedFftBands = null
+    }
+
+    private val soundLabEngine by lazy {
+        SoundLabEngine().also { engine ->
+            engine.onSamplesGenerated = { samples ->
+                mainHandler.post {
+                    if (uiState.soundLabActive) {
+                        uiState = uiState.copy(
+                            playbackWaveform = samples.toList(),
+                            playbackWaveformAvailable = true
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun setParticleMode(mode: ParticleMode) {
+        uiState = uiState.copy(particleMode = mode)
+    }
+
+    fun toggleSoundLab() {
+        val willActive = !uiState.soundLabActive
+        if (willActive) {
+            soundLabEngine.start()
+        } else {
+            soundLabEngine.stop()
+        }
+        uiState = uiState.copy(soundLabActive = willActive)
+    }
+
+    fun setSoundLabSignal(signal: SoundLabEngine.SignalType) {
+        soundLabEngine.currentSignal = signal
+        uiState = uiState.copy(soundLabSignal = signal)
+    }
+
+    fun onParticleFieldTouch(xNorm: Float, yNorm: Float, isTouching: Boolean) {
+        soundLabEngine.flanger.setParametersFromXy(xNorm, yNorm)
+        uiState = uiState.copy(
+            flangerRateHz = soundLabEngine.flanger.targetRateHz,
+            flangerDepth = soundLabEngine.flanger.targetDepth,
+            flangerFeedback = soundLabEngine.flanger.targetFeedback
+        )
     }
 
     fun refreshMicrophonePermission() {
@@ -1146,6 +1204,7 @@ class SonoraViewModel(application: Application) : AndroidViewModel(application) 
     ) == PackageManager.PERMISSION_GRANTED
 
     override fun onCleared() {
+        soundLabEngine.stop()
         playbackVisualizationVisible = false
         stopPlaybackVisualizer()
         routingManager.unregister()

@@ -33,14 +33,43 @@ class FftReducerTest {
 
     @Test
     fun `DC-Bin wird bei bandEnergies ignoriert`() {
-        // First bin (DC) set to max, rest zero -> should not produce high energy in any band
+        // DC-Real (fft[0]) auf Maximum, Rest Null -> kein Band darf hohe Energie aufweisen
         val fft = ByteArray(64) { 0 }
         fft[0] = 127 // DC real max
-        fft[1] = 0
+        fft[1] = 0   // Nyquist zero
+        val mags = FftReducer.magnitudes(fft)!!
+        assertEquals(0.992f, mags[0], 0.01f) // DC magnitude captured
+        val bands = FftReducer.bandEnergies(mags)
+        // DC ist Bin 0, bandEnergies startet bei Bin >= 1, daher alle Bänder 0
+        bands.forEach { assertEquals(0f, it, 0.001f) }
+    }
+
+    @Test
+    fun `Nyquist-Bin wird im hoechsten Band erfasst`() {
+        // Nyquist-Real (fft[1]) auf Maximum, Rest Null
+        val fft = ByteArray(64) { 0 }
+        fft[1] = 127 // Nyquist real max
+        val mags = FftReducer.magnitudes(fft)!!
+        val nyquistBinIndex = mags.size - 1
+        assertEquals(0.992f, mags[nyquistBinIndex], 0.01f)
+        val bands = FftReducer.bandEnergies(mags)
+        // Band 7 (höchstes Band) muss Energie haben, während tiefe Bänder 0 sind
+        assertTrue("Höchstes Band muss Energie enthalten", bands[FftReducer.BAND_COUNT - 1] > 0.01f)
+        assertEquals(0f, bands[0], 0.001f)
+        assertEquals(0f, bands[1], 0.001f)
+    }
+
+    @Test
+    fun `mittlere Frequenz regt entsprechendes Band an`() {
+        // 64 Bytes FFT = 33 Bins (0..32). Bin 8 liegt im oberen Mittenbereich.
+        val fft = ByteArray(64) { 0 }
+        fft[2 * 8] = 100 // Realwert für Bin 8
+        fft[2 * 8 + 1] = 0 // Imag für Bin 8
         val mags = FftReducer.magnitudes(fft)!!
         val bands = FftReducer.bandEnergies(mags)
-        // DC is bin 0, bandEnergies starts at bin 1, so energy should be low
-        assertTrue(bands.max() < 0.5f)
+        // Bänder 0 und 1 (Tiefbass) müssen 0 sein, ein Mittenband muss ausschlagen
+        assertEquals(0f, bands[0], 0.001f)
+        assertTrue("Mittenband muss Peak haben", bands.max() > 0.05f)
     }
 
     @Test
@@ -67,6 +96,16 @@ class FftReducerTest {
         val up = FftReducer.smooth(prev, floatArrayOf(1.0f), attack = 0.5f, release = 0.1f)
         val down = FftReducer.smooth(prev, floatArrayOf(0.0f), attack = 0.5f, release = 0.1f)
         assertTrue("Aufstieg groesser als Abstieg", (up[0] - 0.5f) > (0.5f - down[0]))
+    }
+
+    @Test
+    fun `smooth konvergiert ueber mehrere Frames`() {
+        var current = floatArrayOf(0.0f)
+        val target = floatArrayOf(1.0f)
+        for (frame in 0 until 10) {
+            current = FftReducer.smooth(current, target, attack = 0.4f, release = 0.1f)
+        }
+        assertTrue("Wert nähert sich 1.0 an", current[0] > 0.95f)
     }
 
     @Test

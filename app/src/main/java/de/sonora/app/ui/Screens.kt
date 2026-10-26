@@ -57,6 +57,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import de.sonora.app.audio.SoundLabEngine
+import de.sonora.app.ui.visualizer.ParticleField
+import de.sonora.app.ui.visualizer.ParticleMode
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -368,74 +371,139 @@ private fun PermissionCard(
 }
 
 @Composable
-private fun PlaybackWaveformCard(
+private fun ParticleFieldHeroCard(
     state: SonoraUiState,
-    onEnabledChange: (Boolean) -> Unit
+    onVisualizerEnabledChange: (Boolean) -> Unit,
+    onModeChange: (ParticleMode) -> Unit,
+    onToggleSoundLab: () -> Unit,
+    onSelectSignal: (SoundLabEngine.SignalType) -> Unit,
+    onTouchXy: (Float, Float, Boolean) -> Unit
 ) {
     SectionCard {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Column(Modifier.weight(1f)) {
-                Text("Live-Wellenform", style = MaterialTheme.typography.titleMedium, color = Paper)
-                Text("Zeigt den hörbaren Systemausgang. Android braucht dafür die Mikrofonfreigabe.", style = MaterialTheme.typography.bodySmall, color = Muted)
+                Text("Sonora Partikelfeld", style = MaterialTheme.typography.titleMedium, color = Paper)
+                Text(
+                    if (state.soundLabActive) "Sound Lab aktiv: Bewege den Finger zur XY-Flanger-Steuerung"
+                    else "Echtzeit-Audioreaktives Partikelsystem & Touch-Effektsteuerung",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (state.soundLabActive) CopperSoft else Muted
+                )
             }
             val context = LocalContext.current
             Switch(
                 checked = state.playbackVisualizationEnabled,
                 enabled = state.playbackVisualizationEnabled || hasPermission(context, Manifest.permission.RECORD_AUDIO),
-                onCheckedChange = onEnabledChange,
+                onCheckedChange = onVisualizerEnabledChange,
                 modifier = Modifier.semantics {
                     role = Role.Switch
-                    contentDescription = "Live-Wellenform für den Audioausgang"
+                    contentDescription = "Visualizer für Systemausgang ein- oder ausschalten"
                 }
             )
         }
-        Spacer(Modifier.height(10.dp))
-        if (state.playbackVisualizationEnabled && state.playbackWaveformAvailable && state.playbackWaveform.isNotEmpty()) {
-            Canvas(
-                Modifier
-                    .fillMaxWidth()
-                    .height(88.dp)
-                    .animateContentSize()
-                    .semantics { contentDescription = "Live-Wellenform der laufenden Wiedergabe" }
-            ) {
-                val samples = state.playbackWaveform
-                val middle = size.height / 2f
-                val path = Path()
-                samples.forEachIndexed { index, sample ->
-                    val x = size.width * index / (samples.size - 1).coerceAtLeast(1)
-                    val y = middle - sample.coerceIn(-1f, 1f) * middle * 0.85f
-                    if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+
+        Spacer(Modifier.height(12.dp))
+
+        // Interaktives audioreaktives Partikelfeld mit Flanger-Touchsteuerung
+        ParticleField(
+            spectrum = state.playbackSpectrum,
+            waveform = state.playbackWaveform,
+            activeMode = state.particleMode,
+            onModeChange = onModeChange,
+            xyControlEnabled = true,
+            onXyChange = onTouchXy
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        // Sound Lab: Sonora-eigener PCM Signalweg mit klickfreiem Touch-Flanger
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = Surface2,
+            border = androidx.compose.foundation.BorderStroke(1.dp, if (state.soundLabActive) Copper.copy(alpha = 0.5f) else CardBorder),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Sound Lab — Touch DSP",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = if (state.soundLabActive) CopperSoft else Paper
+                        )
+                        Text(
+                            "Sonora-eigener PCM-Flanger mit klickfreier XY-Modulation",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Muted
+                        )
+                    }
+                    Button(
+                        onClick = onToggleSoundLab,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (state.soundLabActive) Warning else Copper,
+                            contentColor = Ink
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = if (state.soundLabActive) "Stopp" else "Testen",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
                 }
-                drawLine(
-                    color = DividerColor,
-                    start = Offset(0f, middle),
-                    end = Offset(size.width, middle),
-                    strokeWidth = 1.dp.toPx()
-                )
-                drawPath(
-                    path = path,
-                    color = Copper,
-                    style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
-                )
+
+                if (state.soundLabActive) {
+                    Spacer(Modifier.height(10.dp))
+                    Text("Signalquelle:", style = MaterialTheme.typography.labelSmall, color = Muted)
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val signals = listOf(
+                            SoundLabEngine.SignalType.WARM_SYNTH_CHORD to "Synthesizer",
+                            SoundLabEngine.SignalType.PINK_NOISE to "Rauschen",
+                            SoundLabEngine.SignalType.ACOUSTIC_PULSE to "Impuls"
+                        )
+                        signals.forEach { (sig, label) ->
+                            val isSel = state.soundLabSignal == sig
+                            Surface(
+                                onClick = { onSelectSignal(sig) },
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (isSel) Copper.copy(alpha = 0.25f) else Surface1,
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    if (isSel) Copper else DividerColor
+                                )
+                            ) {
+                                Text(
+                                    text = label,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = if (isSel) CopperSoft else Muted,
+                                        fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal
+                                    )
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Tipp: Ziehe den Finger horizontal (LFO-Rate) oder vertikal (Tiefe/Feedback) auf dem Partikelfeld oben, um den Flanger live zu modulieren.",
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                        color = CopperSoft
+                    )
+                }
             }
-            Text(
-                if (state.playbackWaveform.any { kotlin.math.abs(it) > 0.02f }) "Systemausgang wird visualisiert" else "Warte auf hörbares Audiosignal …",
-                style = MaterialTheme.typography.bodySmall,
-                color = Muted
-            )
-        } else if (!state.playbackVisualizationEnabled) {
-            val context = LocalContext.current
-            Text(
-                if (hasPermission(context, Manifest.permission.RECORD_AUDIO)) "Ausgeschaltet. Sonora liest kein Audiosignal mit, bis du die Visualisierung einschaltest." else "Mikrofonfreigabe fehlt. Du kannst sie unter Mehr freigeben; die Visualisierung bleibt optional.",
-                style = MaterialTheme.typography.bodySmall,
-                color = Muted
-            )
-        } else {
-            Text(
-                "Warte auf laufende Wiedergabe. Android gibt die Wellenform gegebenenfalls nicht frei.",
-                style = MaterialTheme.typography.bodySmall,
-                color = Muted
-            )
         }
     }
 }
@@ -510,11 +578,15 @@ fun HomeScreen(vm: SonoraViewModel) {
             }
         }
 
-        // Section 5: Playback visualizer
+        // Section 5: Playback visualizer & Particle Field with Touch DSP
         item {
-            PlaybackWaveformCard(
+            ParticleFieldHeroCard(
                 state = state,
-                onEnabledChange = vm::setPlaybackVisualizationEnabled
+                onVisualizerEnabledChange = vm::setPlaybackVisualizationEnabled,
+                onModeChange = vm::setParticleMode,
+                onToggleSoundLab = vm::toggleSoundLab,
+                onSelectSignal = vm::setSoundLabSignal,
+                onTouchXy = vm::onParticleFieldTouch
             )
         }
 
