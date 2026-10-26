@@ -31,9 +31,9 @@ object FftReducer {
         val binCount = fft.size / 2
         val result = FloatArray(binCount)
         for (i in 0 until binCount) {
-            val real = (fft[i * 2].toInt() and 0xFF) - 128  // signed -> unsigned -> centered
-            val imag = (fft[i * 2 + 1].toInt() and 0xFF) - 128
-            // Magnitude = sqrt(real^2 + imag^2), normalisiert auf 0..1
+            // Android Visualizer liefert signed 8-bit Real/Imag-Werte.
+            val real = fft[i * 2].toInt()
+            val imag = if (i == 0 || i == binCount - 1) 0 else fft[i * 2 + 1].toInt()
             val mag = kotlin.math.sqrt((real * real + imag * imag).toDouble()).toFloat()
             result[i] = (mag / 128f).coerceIn(0f, 1f)
         }

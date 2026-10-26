@@ -26,8 +26,8 @@ class FftReducerTest {
         val fft = ByteArray(64) // all zeros -> magnitude 0 after centering? zeros -> (0-128) magnitude
         // Actually zero bytes -> real= -128? No: (0 & 0xFF)=0, 0-128 = -128. Magnitude 128/128=1.
         // So use 128 bytes (neutral) instead:
-        val neutral = ByteArray(64) { 128.toByte() }
-        val bands = FftReducer.bandEnergies(FftReducer.magnitudes(neutral))
+        val silence = ByteArray(64) { 0 }
+        val bands = FftReducer.bandEnergies(FftReducer.magnitudes(silence))
         bands.forEach { assertEquals(0f, it, 0.01f) }
     }
 
