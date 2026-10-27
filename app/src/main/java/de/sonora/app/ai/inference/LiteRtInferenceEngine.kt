@@ -1,103 +1,59 @@
 package de.sonora.app.ai.inference
 
 import android.content.Context
-import com.google.ai.edge.litert.CompiledModel
-import com.google.ai.edge.litert.TensorBuffer
 import java.io.File
-import java.nio.MappedByteBuffer
-import java.nio.channels.FileChannel
 
 /**
- * LiteRT 2.3.0 basierte Inferenz mit GPU-Testpfad und CPU-Fallback.
+ * LiteRT 2.3.0 basierte Inferenz — AKTUELL PLATZHALTER.
  *
- * GPU/NPU werden NICHT als verfügbar behauptet, bis executionVerified=true
- * auf echtem Gerät (Galaxy A56) vorliegt.
+ * STATUS: Die genauen CompiledModel-API-Signaturen (create/run/TensorBuffer)
+ * sind nicht gegen die offizielle LiteRT 2.3.0-Dokumentation verifiziert.
+ * Diese Klasse behauptet KEINEN GPU- oder NPU-Erfolg.
+ *
+ * Vor echter Aktivierung:
+ * 1. LiteRT 2.3.0 AAR herunterladen und API-Signaturen prüfen.
+ * 2. Modell (yamnet.tflite) in assets/ bündeln.
+ * 3. Tensor-Vertrag validieren (Input: 15600 Float32, Output: 521 Float32).
+ * 4. Auf echtem Gerät (Galaxy A56) ausführen und executionVerified setzen.
+ *
+ * Bis dahin: CPU-only-Fallback, keine Inferenz, ehrlicher Status.
  */
 class LiteRtInferenceEngine(
     private val context: Context,
     private val modelAssetName: String = "yamnet.tflite",
 ) : AiInferenceEngine {
-    override val backendName: String = "LiteRT"
+    override val backendName: String = "LiteRT (nicht verifiziert)"
 
-    private var compiledModel: CompiledModel? = null
-    private var activeBackend: String = "none"
     private var initOk: Boolean = false
     private var execVerified: Boolean = false
-    private var failure: String? = "Nicht initialisiert"
+    private var failure: String? = "LiteRT-API nicht verifiziert; kein Modell gebündelt"
 
     override fun initialize(): Boolean {
-        // 1. GPU versuchen
-        try {
-            val model = loadModel()
-            val opts = CompiledModel.Options().apply {
-                // GPU delegate; falls nicht verfügbar, wirft init fehl
-                accelerator = CompiledModel.Accelerator.GPU
-            }
-            compiledModel = CompiledModel.create(model, opts)
-            activeBackend = "GPU"
-            initOk = true
-            failure = null
-            return true
-        } catch (e: Throwable) {
-            compiledModel?.close()
-            compiledModel = null
+        val modelFile = File(context.filesDir, modelAssetName)
+        if (!modelFile.exists()) {
+            failure = "Modell nicht gebündelt: $modelAssetName (assets/ fehlt)"
             initOk = false
-            failure = "GPU-Init fehlgeschlagen: ${e.message}"
+            return false
         }
-        // 2. CPU-Fallback
-        return try {
-            val model = loadModel()
-            val opts = CompiledModel.Options().apply {
-                accelerator = CompiledModel.Accelerator.CPU
-            }
-            compiledModel = CompiledModel.create(model, opts)
-            activeBackend = "CPU"
-            initOk = true
-            failure = null
-            true
-        } catch (e: Throwable) {
-            compiledModel = null
-            initOk = false
-            failure = "CPU-Init fehlgeschlagen: ${e.message}"
-            false
-        }
+        // TODO: LiteRT CompiledModel.create() erst nach API-Verifikation aktivieren
+        failure = "LiteRT-CompiledModel-API noch nicht verifiziert (siehe docs/NEURAL_ENGINE.md)"
+        initOk = false
+        return false
     }
 
-    private fun loadModel(): MappedByteBuffer {
-        val f = File(context.filesDir, modelAssetName)
-        // Modell muss lokal gebündelt sein; kein Download.
-        if (!f.exists()) throw IllegalStateException("Modell nicht gebündelt: $modelAssetName")
-        val channel = java.io.FileInputStream(f).channel
-        return channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size())
-    }
-
-    override fun isReady(): Boolean = initOk && compiledModel != null
+    override fun isReady(): Boolean = false
 
     override fun infer(features: AudioFeatures): ModelResult {
-        val m = compiledModel ?: throw IllegalStateException("Engine nicht initialisiert")
-        val start = System.nanoTime()
-        // Minimaler Pfad: Eingabe-Buffer erzeugen (Modell-spezifisch anzupassen)
-        val input = TensorBuffer.createFixedSize(intArrayOf(features.monoPcm16k.size), org.tensorflow.lite.DataType.FLOAT32)
-        input.loadArray(features.monoPcm16k)
-        val outputs = m.run(input)
-        val elapsed = (System.nanoTime() - start) / 1_000_000
-        execVerified = true
-        return ModelResult(
-            labels = emptyList(),
-            scores = FloatArray(0),
-            inferenceTimeMs = elapsed,
-            backend = activeBackend,
-        )
+        throw IllegalStateException("LiteRT-Inferenz nicht aktiviert: API nicht verifiziert")
     }
 
     override fun release() {
-        compiledModel?.close()
-        compiledModel = null
         initOk = false
+        execVerified = false
     }
 
     override fun backendStatus(): BackendStatus = BackendStatus(
-        supported = true,
+        supported = false,
         initializationSucceeded = initOk,
         executionVerified = execVerified,
         failureReason = failure,
