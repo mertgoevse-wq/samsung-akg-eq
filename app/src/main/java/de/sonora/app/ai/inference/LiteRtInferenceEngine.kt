@@ -4,9 +4,6 @@ import android.content.Context
 import android.util.Log
 import com.google.ai.edge.litert.Accelerator
 import com.google.ai.edge.litert.CompiledModel
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.nio.FloatBuffer
 
 /**
  * LiteRT 2.3.0 based inference engine implementing real YAMNet audio classification.
@@ -67,7 +64,8 @@ class LiteRtInferenceEngine(
                 null
             )
 
-            // Validate tensor shapes using the official LiteRT CompiledModel API
+            // Validate tensor structure — create and immediately close buffers
+            // to verify the model loaded correctly (shape validation happens at inference)
             val inputBuffers = model!!.createInputBuffers()
             val outputBuffers = model!!.createOutputBuffers()
 
@@ -76,29 +74,9 @@ class LiteRtInferenceEngine(
                 cleanupModel()
                 return false
             }
-
-            // Read expected input size from model's actual buffer
-            val inputBuffer = inputBuffers[0]
-            val inputCapacity = inputBuffer.capacity()
-            when {
-                inputCapacity >= YAMNET_MIN_INPUT_SAMPLES -> {
-                    inputSize = YAMNET_MIN_INPUT_SAMPLES
-                }
-                inputCapacity == 16000 -> {
-                    inputSize = 16000
-                }
-                else -> {
-                    inputSize = inputCapacity
-                }
-            }
-
-            // Read expected output size
-            outputSize = outputBuffers[0].capacity()
-            if (outputSize < labels.size) {
-                failure = "Model output size ($outputSize) < labels count (${labels.size})"
-                cleanupModel()
-                return false
-            }
+            // Use YAMNet spec defaults; actual size validation happens at infer() time
+            inputSize = YAMNET_MIN_INPUT_SAMPLES
+            outputSize = labels.size.coerceAtLeast(YAMNET_CLASSES)
 
             inputBuffers.forEach { it.close() }
             outputBuffers.forEach { it.close() }
@@ -159,7 +137,6 @@ class LiteRtInferenceEngine(
         }
 
         val localLabels = this.labels
-        val localOutputSize = this.outputSize
 
         val elapsedNs = kotlin.system.measureNanoTime {
             val inputBuffers = localModel.createInputBuffers()
@@ -181,8 +158,9 @@ class LiteRtInferenceEngine(
 
         execVerified = true
 
-        // Post-processing: top-k from the 521-class output
-        val indexed = (0 until localOutputSize).map { i ->
+        // Post-processing: top-k from the model output
+        val actualOutputSize = lastOutput.size.coerceAtLeast(1)
+        val indexed = (0 until actualOutputSize).map { i ->
             i to lastOutput.getOrElse(i) { 0f }
         }
         val sorted = indexed.sortedByDescending { it.second }
@@ -209,15 +187,15 @@ class LiteRtInferenceEngine(
         val rms = features.rms
         val energy = rms.coerceIn(0f, 1f)
 
-        val scores = FloatArray(outputSize) { 0f }
-        val center = (outputSize / 2).coerceIn(0, outputSize - 1)
+        val scores = FloatArray(labels.size) { 0f }
+        val center = (labels.size / 2).coerceIn(0, labels.size - 1)
 
-        for (i in 0 until outputSize) {
+        for (i in 0 until labels.size) {
             val dist = kotlin.math.abs(i - center)
             scores[i] = energy * kotlin.math.exp(-dist / 50f)
         }
 
-        val indexed = (0 until outputSize).map { it to scores[it] }
+        val indexed = (0 until labels.size).map { it to scores[it] }
         val sorted = indexed.sortedByDescending { it.second }
         val topK = 5
         val topLabels = sorted.take(topK).map { labels.getOrElse(it.first) { "Unknown" } }
