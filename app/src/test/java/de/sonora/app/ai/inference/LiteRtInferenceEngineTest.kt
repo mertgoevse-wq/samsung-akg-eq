@@ -174,7 +174,7 @@ class LiteRtInferenceEngineTest {
         val resampled = PcmPreprocessor.resample(mono, originalRate, targetRate)
         val normalized = PcmPreprocessor.normalize(resampled)
 
-        assertEquals(targetRate, resampled.size / durationMs * 1000, 10)
+        assertEquals(targetRate, resampled.size / durationMs * 1000)
 
         val features = AudioFeatures(
             monoPcm16k = normalized,
