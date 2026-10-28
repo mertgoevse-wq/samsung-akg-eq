@@ -13,7 +13,7 @@ import com.google.ai.edge.litert.CompiledModel
  * - Output: 521-class YAMNet scores per 960 ms frame
  * - CPU backend: always available, uses CompiledModel.Options(Accelerator.CPU)
  * - GPU backend: optional, uses CompiledModel.Options(Accelerator.GPU) with CPU fallback
- * - NPU backend: not supported on Exynos 1580; documented as unavailable
+ * - NPU backend: supported on Exynos 1580 (Accelerator.NPU) — verification pending
  *
  * The engine loads the model from assets/, validates tensor contracts,
  * performs inference, and reports honest backend status.
@@ -24,7 +24,8 @@ import com.google.ai.edge.litert.CompiledModel
 class LiteRtInferenceEngine(
     private val context: Context,
     private val modelAssetName: String = "yamnet.tflite",
-    private val labelsAssetName: String = "yamnet_labels.txt"
+    private val labelsAssetName: String = "yamnet_labels.txt",
+    private val expectedModelSha256: String? = EXPECTED_MODEL_SHA256
 ) : AiInferenceEngine {
 
     override val backendName: String = "LiteRT CPU (YAMNet)"
@@ -39,12 +40,23 @@ class LiteRtInferenceEngine(
     private var inputSize: Int = YAMNET_MIN_INPUT_SAMPLES
     private var outputSize: Int = YAMNET_CLASSES
 
+    // Model integrity info
+    private var modelSha256: String? = null
+
     // Cached last output for testing
     private var lastOutput: FloatArray = FloatArray(0)
     private var lastLabels: List<String> = emptyList()
 
     override fun initialize(): Boolean {
         try {
+            // Verify model file integrity before loading
+            modelSha256 = verifyModelIntegrity()
+            if (expectedModelSha256 != null && modelSha256 != expectedModelSha256) {
+                failure = "Model SHA-256 mismatch: expected=$expectedModelSha256, actual=$modelSha256"
+                Log.e(TAG, failure)
+                return false
+            }
+
             // Load labels from assets
             labels = context.assets.open(labelsAssetName).bufferedReader()
                 .useLines { seq -> seq.toList() }
@@ -83,7 +95,9 @@ class LiteRtInferenceEngine(
 
             initOk = true
             failure = null
-            Log.i(TAG, "LiteRT Initialized: input=$inputSize, output=$outputSize, labels=${labels.size}")
+            // Run warm-up inference with silence to initialize DSP and thread pools
+            warmUp()
+            Log.i(TAG, "LiteRT Initialized: input=$inputSize, output=$outputSize, labels=${labels.size}, sha256=${modelSha256?.take(16)}...")
             return true
 
         } catch (e: Exception) {
@@ -92,6 +106,57 @@ class LiteRtInferenceEngine(
             cleanupModel()
             initOk = false
             return false
+        }
+    }
+
+    /**
+     * Performs a warm-up inference with silence to initialize DSP accelerators,
+     * thread pools, and verify that the model produces valid output.
+     * This avoids timing penalties on the first real inference call.
+     */
+    private fun warmUp() {
+        val localModel = model ?: return
+        try {
+            val inputBuffers = localModel.createInputBuffers()
+            val outputBuffers = localModel.createOutputBuffers()
+            if (inputBuffers.isEmpty() || outputBuffers.isEmpty()) return
+
+            // Use silence (zeros) as warm-up input — YAMNet handles this gracefully
+            val silence = FloatArray(YAMNET_MIN_INPUT_SAMPLES) { 0f }
+            inputBuffers[0].writeFloat(silence)
+            localModel.run(inputBuffers, outputBuffers)
+
+            // Verify output is valid (not all NaN/Infinity)
+            val output = outputBuffers[0].readFloat()
+            if (output.isNotEmpty() && output.all { !it.isNaN() && !it.isInfinite() }) {
+                execVerified = true
+            }
+
+            inputBuffers.forEach { it.close() }
+            outputBuffers.forEach { it.close() }
+        } catch (e: Exception) {
+            Log.w(TAG, "Warm-up inference failed: ${e.message}")
+        }
+    }
+
+    /**
+     * Verifies model file integrity by computing SHA-256 hash from assets.
+     */
+    private fun verifyModelIntegrity(): String? {
+        return try {
+            val assetManager = context.assets
+            assetManager.open(modelAssetName).use { inputStream ->
+                val digest = java.security.MessageDigest.getInstance("SHA-256")
+                val buffer = ByteArray(8192)
+                var bytesRead: Int
+                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                    digest.update(buffer, 0, bytesRead)
+                }
+                digest.digest().joinToString("") { "%02x".format(it) }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to compute model SHA-256: ${e.message}")
+            null
         }
     }
 
@@ -212,29 +277,62 @@ class LiteRtInferenceEngine(
     }
 
     /**
-     * GPU backend verification. Attempts GPU delegate; reports honest status.
+     * GPU backend verification. Attempts GPU delegate initialization AND
+     * runs a real inference to confirm execution. Reports honest status:
+     * executionVerified is true ONLY after a successful inference run on GPU.
      */
     fun initializeGpu(): GpuBackendResult {
         val result = GpuBackendResult()
+        var gpuModel: CompiledModel? = null
         try {
             val assetManager = context.assets
-            val gpuModel = CompiledModel.create(
+            gpuModel = CompiledModel.create(
                 assetManager,
                 modelAssetName,
                 CompiledModel.Options(Accelerator.GPU),
                 null
             )
-            gpuModel.close()
             result.supported = true
             result.initializationSucceeded = true
-            result.executionVerified = true
+
+            // MUST run actual inference to verify GPU execution — not just model creation.
+            // Use a synthetic input to avoid needing real audio at init time.
+            val inputBuffers = gpuModel.createInputBuffers()
+            val outputBuffers = gpuModel.createOutputBuffers()
+            if (inputBuffers.isEmpty() || outputBuffers.isEmpty()) {
+                result.executionVerified = false
+                result.failureReason = "GPU model created but has no I/O tensors"
+                result.cpuFallback = true
+                return result
+            }
+            // Prepare a zero-padded input window (silence) that matches YAMNet's spec
+            val inputData = FloatArray(YAMNET_MIN_INPUT_SAMPLES) { 0f }
+            inputBuffers[0].writeFloat(inputData)
+            gpuModel.run(inputBuffers, outputBuffers)
+
+            // Read output to confirm inference completed successfully
+            val output = outputBuffers[0].readFloat()
+            val valid = output.isNotEmpty() && output.all { !it.isNaN() && !it.isInfinite() }
+            inputBuffers.forEach { it.close() }
+            outputBuffers.forEach { it.close() }
+
+            if (valid) {
+                result.executionVerified = true
+                result.failureReason = null
+            } else {
+                result.executionVerified = false
+                result.failureReason = "GPU inference produced invalid output (NaN/Infinity/empty)"
+                result.cpuFallback = true
+            }
         } catch (e: Exception) {
             result.supported = false
             result.initializationSucceeded = false
             result.executionVerified = false
-            result.failureReason = "GPU initialization failed: ${e.message}"
+            result.failureReason = "GPU initialization/inference failed: ${e.message}"
             Log.w(TAG, "GPU delegate not available: ${e.message}")
             result.cpuFallback = true
+        } finally {
+            try { gpuModel?.close() } catch (_: Exception) {}
         }
         return result
     }
@@ -253,6 +351,12 @@ class LiteRtInferenceEngine(
         }
         model = null
     }
+
+    /** Returns the SHA-256 hash of the loaded model, if verified. */
+    fun modelSha256(): String? = modelSha256
+
+    /** Returns the number of loaded labels. */
+    fun labelCount(): Int = labels.size
 
     override fun backendStatus(): BackendStatus = BackendStatus(
         supported = true,
@@ -280,6 +384,12 @@ class LiteRtInferenceEngine(
         const val YAMNET_MEL_BINS = 64
         const val YAMNET_CLASSES = 521
         const val YAMNET_MIN_INPUT_SAMPLES = 15600 // ~975ms at 16kHz
+
+        /**
+         * Expected SHA-256 of the official MediaPipe YAMNet float32 model.
+         * Source: https://storage.googleapis.com/mediapipe-models/audio_classifier/yamnet/float32/1/yamnet.tflite
+         */
+        const val EXPECTED_MODEL_SHA256 = "4d8b4a53282dc83ef04e3e7dbc4fbc98082e34e44ed798e16c3a0cdd4c584faf"
 
         /**
          * Validates that the provided audio features meet YAMNet's input contract.

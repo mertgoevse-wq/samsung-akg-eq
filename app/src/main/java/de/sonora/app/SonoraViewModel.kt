@@ -20,6 +20,7 @@ import de.sonora.app.ai.AiAdviceResult
 import de.sonora.app.ai.AiSuggestion
 import de.sonora.app.ai.HearingPreference
 import de.sonora.app.ai.LocalRuleAiProvider
+import de.sonora.app.ai.inference.NeuralAudioState
 import de.sonora.app.audio.AudioDeviceSnapshot
 import de.sonora.app.audio.AudioRoutingManager
 import de.sonora.app.audio.EngineStatus

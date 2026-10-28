@@ -33,11 +33,37 @@ object PcmPreprocessor {
         return out
     }
 
+    /**
+     * Normalizes audio to [-1, 1] range. Use [normalizeToUnitRange] for peak
+     * normalization or [clampToUnitRange] for safe clamping without distortion.
+     *
+     * For YAMNet compatibility: the model expects 16-bit PCM represented as
+     * float32 in [-1.0, 1.0]. Peak normalization should NOT be applied blindly
+     * as it can distort the signal dynamics. Use [clampToUnitRange] instead.
+     */
     fun normalize(input: FloatArray): FloatArray {
+        return normalizeToUnitRange(input)
+    }
+
+    /**
+     * Peak normalization to [-1, 1]. Use with caution — this can distort
+     * signals that intentionally have low peak levels relative to their
+     * overall energy content. Prefer [clampToUnitRange] for YAMNet.
+     */
+    fun normalizeToUnitRange(input: FloatArray): FloatArray {
         var peak = 0f
         for (v in input) peak = maxOf(peak, kotlin.math.abs(v))
         if (peak == 0f) return input.copyOf()
         val scale = 1f / peak
         return FloatArray(input.size) { input[it] * scale }
+    }
+
+    /**
+     * Clamps values to [-1, 1] without peak normalization. This preserves
+     * the original signal dynamics while ensuring compatibility with models
+     * that expect bounded float input (e.g., YAMNet float32).
+     */
+    fun clampToUnitRange(input: FloatArray): FloatArray {
+        return FloatArray(input.size) { input[it].coerceIn(-1f, 1f) }
     }
 }

@@ -23,6 +23,7 @@ import de.sonora.app.SonoraViewModel
 
 enum class SonoraTab(val label: String, val symbol: String) {
     Now("Jetzt", "◉"),
+    Neural("Neural", "◉"),
     Sound("Klang", "≋"),
     Spatial("Raum", "◈"),
     Profiles("Profile", "▤"),
@@ -90,6 +91,7 @@ fun SonoraRoot(vm: SonoraViewModel) {
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (selectedTab) {
                 SonoraTab.Now.name -> HomeScreen(vm)
+                SonoraTab.Neural.name -> NeuralAudioScreen(vm)
                 SonoraTab.Sound.name -> EqualizerScreen(vm)
                 SonoraTab.Spatial.name -> SpatialScreen(vm)
                 SonoraTab.Profiles.name -> ProfilesScreen(vm)
