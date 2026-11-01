@@ -42,10 +42,10 @@ class HardwareCapabilityRepository(private val context: Context? = null) {
 
     fun npu(): BackendCapability = BackendCapability(
         name = "NPU (Exynos AI LiteCore)",
-        supported = false,
+        supported = true,
         initializationSucceeded = false,
         executionVerified = false,
-        failureReason = "NPU nicht verifiziert; keine echte NNAPI/LiteRT-NPU-Ausführung nachgewiesen.",
+        failureReason = "Exynos 1580 besitzt eine NPU; Nutzung durch Sonora ist jedoch unbestätigt (keine verifizierte NNAPI/LiteRT-NPU-Ausführung).",
     )
 
     /**

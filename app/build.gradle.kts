@@ -19,6 +19,19 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("standard") {
+            dimension = "distribution"
+            applicationId = "de.sonora.app"
+        }
+        create("parallel") {
+            dimension = "distribution"
+            applicationId = "de.sonora.app.test"
+            versionNameSuffix = "-parallel"
+        }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true

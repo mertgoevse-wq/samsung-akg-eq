@@ -7,10 +7,10 @@ import org.junit.Test
 
 class HardwareCapabilityRepositoryTest {
     @Test
-    fun npuIsNotClaimedAvailable() {
+    fun npuExistsButUnverified() {
         val repo = HardwareCapabilityRepository()
         val npu = repo.npu()
-        assertFalse(npu.supported)
+        assertTrue(npu.supported) // Exynos 1580 has NPU
         assertFalse(npu.initializationSucceeded)
         assertFalse(npu.executionVerified)
     }
