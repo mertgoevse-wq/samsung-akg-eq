@@ -19,7 +19,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import de.sonora.app.SonoraViewModel
+import de.sonora.app.ui.screen.NeuralAudioScreen
 
 enum class SonoraTab(val label: String, val symbol: String) {
     Now("Jetzt", "◉"),
@@ -91,7 +93,7 @@ fun SonoraRoot(vm: SonoraViewModel) {
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (selectedTab) {
                 SonoraTab.Now.name -> HomeScreen(vm)
-                SonoraTab.Neural.name -> NeuralAudioScreen(vm)
+                SonoraTab.Neural.name -> NeuralAudioScreen(viewModel())
                 SonoraTab.Sound.name -> EqualizerScreen(vm)
                 SonoraTab.Spatial.name -> SpatialScreen(vm)
                 SonoraTab.Profiles.name -> ProfilesScreen(vm)

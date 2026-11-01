@@ -2,14 +2,23 @@ package de.sonora.app.ai.inference
 
 import android.app.Application
 import android.util.Log
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import de.sonora.app.R
+import de.sonora.app.ai.inference.LiteRtInferenceEngine.Companion.YAMNET_CLASSES
+import de.sonora.app.ai.inference.LiteRtInferenceEngine.Companion.YAMNET_FRAME_SIZE
+import de.sonora.app.ai.inference.LiteRtInferenceEngine.Companion.YAMNET_MIN_INPUT_SAMPLES
+import de.sonora.app.ai.inference.LiteRtInferenceEngine.Companion.YAMNET_MEL_BINS
+import de.sonora.app.ai.inference.LiteRtInferenceEngine.Companion.YAMNET_SAMPLE_RATE
 import de.sonora.app.audio.SoundLabEngine
 import de.sonora.app.core.BandCount
 import de.sonora.app.core.EqCurve
 import de.sonora.app.data.SoundProfile
 import de.sonora.app.hardware.HardwareCapabilityRepository
+import de.sonora.app.ui.screen.NeuralAudioState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -36,7 +45,7 @@ class NeuralAudioViewModel(application: Application) : AndroidViewModel(applicat
 
     private val engine = LiteRtInferenceEngine(application)
     private val hardwareRepo = HardwareCapabilityRepository(application)
-    private val soundLab = SoundLabEngine(sampleRate = 16000)
+    private val soundLab = SoundLabEngine(sampleRate = 44100)
 
     // Thread confinement: inference runs on background dispatcher
     private val inferenceScope = viewModelScope
@@ -46,22 +55,14 @@ class NeuralAudioViewModel(application: Application) : AndroidViewModel(applicat
     private var inferenceJob: Job? = null
 
     // State
-    @Volatile
-    private var _classificationActive = false
-    @Volatile
-    private var _demoMode = true
-    @Volatile
-    private var _backendCapabilities: HardwareCapabilities = HardwareCapabilities()
-    @Volatile
-    private var _modelInfo: ModelInfo = ModelInfo()
-    @Volatile
-    private var _topResults: List<Pair<String, Float>> = emptyList()
-    @Volatile
-    private var _audioActivityLevel: Float = 0f
-    @Volatile
-    private var _inferenceTimeMs: Long = 0L
-    @Volatile
-    private var _statusMessage: String? = null
+    private var _classificationActive by mutableStateOf(false)
+    private var _demoMode by mutableStateOf(true)
+    private var _backendCapabilities by mutableStateOf(HardwareCapabilities())
+    private var _modelInfo by mutableStateOf(ModelInfo())
+    private var _topResults by mutableStateOf<List<Pair<String, Float>>>(emptyList())
+    private var _audioActivityLevel by mutableStateOf(0f)
+    private var _inferenceTimeMs by mutableStateOf(0L)
+    private var _statusMessage by mutableStateOf<String?>(null)
 
     // Ring buffer for accumulating audio samples
     private val audioBuffer = RingBuffer(YAMNET_MIN_INPUT_SAMPLES * 4)
@@ -199,9 +200,9 @@ class NeuralAudioViewModel(application: Application) : AndroidViewModel(applicat
 
             if (_demoMode) {
                 soundLab.onSamplesGenerated = { samples ->
-                    // Convert 44.1kHz to 16kHz and normalize to [-1,1]
+                    // Use real source sample rate of SoundLabEngine, then resample to YAMNet 16kHz
                     val mono = PcmPreprocessor.toMono(samples, 1)
-                    val resampled = PcmPreprocessor.resample(mono, 44100, 16000)
+                    val resampled = PcmPreprocessor.resample(mono, soundLab.sampleRate, YAMNET_SAMPLE_RATE)
                     val clamped = PcmPreprocessor.clampToUnitRange(resampled)
 
                     // Calculate audio activity level (RMS-based)
@@ -398,13 +399,21 @@ class NeuralAudioViewModel(application: Application) : AndroidViewModel(applicat
         )
     }
 
-    /** Returns latency percentiles for diagnostic display. */
+    /** Returns latency percentiles for diagnostic display. Deterministic p50/p95. */
     fun latencyPercentiles(): Pair<Long, Long> {
         if (latencyHistory.isEmpty()) return 0L to 0L
         val sorted = latencyHistory.sorted()
-        val p50 = sorted[sorted.size * 0.5 / 100.coerceAtLeast(1)]
-        val p95Index = (sorted.size * 0.95).toInt().coerceAtMost(sorted.size - 1)
-        return sorted[sorted.size / 2] to sorted[p95Index]
+        val n = sorted.size
+        fun percentile(p: Double): Long {
+            if (n == 1) return sorted[0]
+            val rank = p * (n - 1)
+            val lo = kotlin.math.floor(rank).toInt().coerceIn(0, n - 1)
+            val hi = kotlin.math.ceil(rank).toInt().coerceIn(0, n - 1)
+            if (lo == hi) return sorted[lo]
+            val frac = rank - lo
+            return (sorted[lo] + (sorted[hi] - sorted[lo]) * frac).toLong()
+        }
+        return percentile(0.5) to percentile(0.95)
     }
 
     /** Returns model diagnostic info. */

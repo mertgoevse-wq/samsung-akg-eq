@@ -12,20 +12,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import de.sonora.app.SonoraViewModel
-import de.sonora.app.ai.inference.NeuralAudioState
+import de.sonora.app.ai.inference.NeuralAudioViewModel
 
 /**
- * Neural Audio Lab screen — integrates with the SonoraViewModel's neural audio support.
+ * Neural Audio Lab screen — integrates with NeuralAudioViewModel.
  *
  * Shows:
  * - Currently detected audio events (top-5 from YAMNet)
@@ -37,11 +34,11 @@ import de.sonora.app.ai.inference.NeuralAudioState
  */
 @Composable
 fun NeuralAudioScreen(
-    vm: SonoraViewModel,
+    vm: NeuralAudioViewModel,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val state by remember { mutableStateOf(vm.neuralAudioState) }
+    val state = vm.uiState
     val micPermission = rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -65,12 +62,12 @@ fun NeuralAudioScreen(
     Box(modifier = modifier.fillMaxSize()) {
         if (vm.neuralAudioReady) {
             NeuralAudioLab(
-                state = vm.neuralAudioState,
+                state = state,
                 onToggleClassification = {
-                    if (vm.neuralAudioState.isActive) {
+                    if (state.isActive) {
                         vm.stopNeuralClassification()
                     } else {
-                        if (vm.neuralAudioState.isDemoMode) {
+                        if (state.isDemoMode) {
                             vm.startNeuralClassification()
                         } else {
                             if (!micPermission.value) {
@@ -89,7 +86,7 @@ fun NeuralAudioScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(32.dp),
-                horizontalArrangement = Arrangement.Center
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = if (vm.neuralAudioInitError != null) {

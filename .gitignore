@@ -24,3 +24,7 @@ local.defaults.properties
 # Lokale Build-/Arbeitsartefakte
 .kotlin/
 Eigene Dateien/
+
+# JDK (lokale Installation, nicht versionieren)
+/jdk/
+*.tar.gz

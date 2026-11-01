@@ -52,8 +52,9 @@ class LiteRtInferenceEngine(
             // Verify model file integrity before loading
             modelSha256 = verifyModelIntegrity()
             if (expectedModelSha256 != null && modelSha256 != expectedModelSha256) {
-                failure = "Model SHA-256 mismatch: expected=$expectedModelSha256, actual=$modelSha256"
-                Log.e(TAG, failure)
+                val message: String = "Model SHA-256 mismatch: expected=${expectedModelSha256}, actual=${modelSha256}"
+                failure = message
+                Log.e(TAG, message)
                 return false
             }
 

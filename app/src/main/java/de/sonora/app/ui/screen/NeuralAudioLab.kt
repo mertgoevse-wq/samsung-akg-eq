@@ -38,23 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-/**
- * UI state for the Neural Audio Lab screen.
- */
-data class NeuralAudioState(
-    val isActive: Boolean = false,
-    val isDemoMode: Boolean = true,
-    val backendName: String = "CPU",
-    val inferenceTimeMs: Long = 0L,
-    val topResults: List<Pair<String, Float>> = emptyList(),
-    val audioActivityLevel: Float = 0f,
-    val statusMessage: String? = null
-) {
-    val isRunning: Boolean get() = isActive && !isDemoMode
-    val demoIndicatorVisible: Boolean get() = isDemoMode
-}
-
+import de.sonora.app.ai.inference.NeuralAudioState
 @Composable
 fun NeuralAudioLab(
     state: NeuralAudioState,
@@ -143,7 +127,7 @@ private fun NeuralAudioHeader(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                </Column>
+                }
 
                 Switch(
                     checked = isActive,
@@ -235,6 +219,7 @@ private fun InfoChip(label: String, value: String) {
 private fun AudioActivityMeter(level: Float) {
     val barCount = 20
     val normalizedLevel = level.coerceIn(0f, 1f)
+    val inactiveBarColor = MaterialTheme.colorScheme.onSurface.copy(0.1f)
 
     Box(
         modifier = Modifier
@@ -262,7 +247,7 @@ private fun AudioActivityMeter(level: Float) {
                         Color(0xFFF44336) // red
                     }
                 } else {
-                    MaterialTheme.colorScheme.onSurface.copy(0.1f)
+                    inactiveBarColor
                 }
 
                 if (barHeight > 0) {

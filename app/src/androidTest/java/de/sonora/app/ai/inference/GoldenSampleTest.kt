@@ -2,6 +2,7 @@ package de.sonora.app.ai.inference
 
 import de.sonora.app.R
 import org.junit.Assert.*
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -17,13 +18,13 @@ import java.nio.ByteOrder
  * runs inference on a deterministic synthetic sine-wave signal at 440 Hz
  * (A440). The expected behavior is:
  *
- * 1. The model produces exactly 521 output scores (one per AudioSet class).
+ * 1. The model has 521 labels (one per AudioSet class).
  * 2. "Sine wave" and related tone classes receive non-zero scores.
  * 3. No NaN or Infinity appears in the output.
  * 4. The top-5 results are returned correctly.
  *
  * This test requires a physical device or emulator with the model in assets.
- * On CI without a model, it will fail gracefully with an informative message.
+ * It runs as an instrumented Android test, separately from JVM unit tests.
  *
  * Audio test signal: A 440 Hz sine wave at 0.5 amplitude, 16 kHz mono, 1 second.
  */
@@ -36,6 +37,11 @@ class GoldenSampleTest {
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         engine = LiteRtInferenceEngine(context)
+    }
+
+    @After
+    fun tearDown() {
+        engine.release()
     }
 
     /**
@@ -65,7 +71,7 @@ class GoldenSampleTest {
     }
 
     @Test
-    fun modelProduces521ScoresForSineWave() {
+    fun modelProducesTopFiveScoresForSineWave() {
         if (!engine.initialize()) {
             fail("Model failed to initialize — cannot run golden sample test")
         }
@@ -79,7 +85,7 @@ class GoldenSampleTest {
 
         val result = engine.infer(features)
 
-        assertEquals("Model result should contain exactly 521 scores", 521, result.scores.size)
+        assertEquals("YAMNet should have exactly 521 labels", 521, engine.labelCount())
         assertEquals("Top-5 labels should be returned", 5, result.labels.size)
         assertEquals("Top-5 scores should match labels", result.labels.size, result.scores.size)
         assertTrue("Inference time should be positive", result.inferenceTimeMs >= 0)
