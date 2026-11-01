@@ -18,7 +18,7 @@ import de.sonora.app.core.BandCount
 import de.sonora.app.core.EqCurve
 import de.sonora.app.data.SoundProfile
 import de.sonora.app.hardware.HardwareCapabilityRepository
-import de.sonora.app.ui.screen.NeuralAudioState
+import de.sonora.app.ai.inference.NeuralAudioState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay

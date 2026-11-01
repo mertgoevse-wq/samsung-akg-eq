@@ -42,10 +42,10 @@ class HardwareCapabilityRepository(private val context: Context? = null) {
 
     fun npu(): BackendCapability = BackendCapability(
         name = "NPU (Exynos AI LiteCore)",
-        supported = true,
+        supported = false,
         initializationSucceeded = false,
         executionVerified = false,
-        failureReason = null,
+        failureReason = "NPU nicht verifiziert; keine echte NNAPI/LiteRT-NPU-Ausführung nachgewiesen.",
     )
 
     /**

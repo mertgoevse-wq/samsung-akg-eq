@@ -24,7 +24,7 @@ class ModelIntegrityTest {
     @Test
     fun testModelFileExists() {
         // Check if the model file exists in the standard test asset location
-        val modelFile = File("app/src/main/assets/yamnet.tflite")
+        val modelFile = File("src/main/assets/yamnet.tflite")
         assertTrue(
             "YAMNet model file should exist at app/src/main/assets/yamnet.tflite. " +
             "If running in CI without model, this test will be skipped.",
@@ -34,13 +34,13 @@ class ModelIntegrityTest {
 
     @Test
     fun testLabelsFileExists() {
-        val labelsFile = File("app/src/main/assets/yamnet_labels.txt")
+        val labelsFile = File("src/main/assets/yamnet_labels.txt")
         assertTrue("Labels file should exist", labelsFile.exists() || System.getenv("CI") != null)
     }
 
     @Test
     fun testModelFileSizeIsReasonable() {
-        val modelFile = File("app/src/main/assets/yamnet.tflite")
+        val modelFile = File("src/main/assets/yamnet.tflite")
         if (!modelFile.exists()) {
             println("Skipping model size test — file not found (CI environment may not have model)")
             return
@@ -59,7 +59,7 @@ class ModelIntegrityTest {
 
     @Test
     fun testLabelsFileHas521Entries() {
-        val labelsFile = File("app/src/main/assets/yamnet_labels.txt")
+        val labelsFile = File("src/main/assets/yamnet_labels.txt")
         if (!labelsFile.exists()) {
             println("Skipping label count test — file not found (CI environment may not have assets)")
             return
@@ -70,7 +70,7 @@ class ModelIntegrityTest {
 
     @Test
     fun testFirstLabelIsSpeech() {
-        val labelsFile = File("app/src/main/assets/yamnet_labels.txt")
+        val labelsFile = File("src/main/assets/yamnet_labels.txt")
         if (!labelsFile.exists()) {
             println("Skipping label content test — file not found")
             return
@@ -84,7 +84,7 @@ class ModelIntegrityTest {
 
     @Test
     fun testLastLabelIsFieldRecording() {
-        val labelsFile = File("app/src/main/assets/yamnet_labels.txt")
+        val labelsFile = File("src/main/assets/yamnet_labels.txt")
         if (!labelsFile.exists()) {
             println("Skipping label content test — file not found")
             return
@@ -98,7 +98,7 @@ class ModelIntegrityTest {
 
     @Test
     fun testModelMagicBytes() {
-        val modelFile = File("app/src/main/assets/yamnet.tflite")
+        val modelFile = File("src/main/assets/yamnet.tflite")
         if (!modelFile.exists()) {
             println("Skipping model magic bytes test — file not found")
             return
@@ -122,7 +122,7 @@ class ModelIntegrityTest {
      */
     @Test
     fun testModelSha256MatchesOfficial() {
-        val modelFile = File("app/src/main/assets/yamnet.tflite")
+        val modelFile = File("src/main/assets/yamnet.tflite")
         if (!modelFile.exists()) {
             println("Skipping SHA-256 test — model file not found")
             return
