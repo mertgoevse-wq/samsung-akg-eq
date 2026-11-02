@@ -26,17 +26,15 @@ CI-Logs, Screenshots oder Debug-Reports.
 | `POST_NOTIFICATIONS` | Foreground-Service-Benachrichtigung | Erforderlich |
 | `FOREGROUND_SERVICE` | Audio-Engine im Hintergrund | Erforderlich |
 | `FOREGROUND_SERVICE_SPECIAL_USE` | Spezial-Art Foreground-Service | Kritisch — benötigt Policy-Begründung |
-| `FOREGROUND_SERVICE_MEDIA_PROJECTION` | MediaProjection-Capture | Deklariert, aber kein entsprechender Foreground-Service-Typ |
-| `MEDIA_PROJECTION` | Playback-Capture / Bildschirmaufnahme | Nur bei ausdrücklicher Nutzeraktion |
 
 ### Befunde
 
-1. `SonoraService` nutzt `foregroundServiceType="specialUse"`, während
-   `FOREGROUND_SERVICE_MEDIA_PROJECTION` und `MEDIA_PROJECTION` deklariert sind,
-   aber kein `mediaProjection`-Foreground-Service-Typ im Manifest vorhanden ist.
-   → Inkonsistenz: MediaProjection-Capture kann nicht als specialUse-FGS laufen.
-   Empfehlung: entweder `mediaProjection`-Typ ergänzen oder Berechtigung
-   entfernen, wenn nicht genutzt.
+1. `FOREGROUND_SERVICE_MEDIA_PROJECTION` und `MEDIA_PROJECTION` wurden entfernt,
+   da Sonora keinen MediaProjection-/Playback-Capture-Dienst implementiert
+   (Visualizer nutzt Android-Session-0-Audiocapture, der keine
+   `MEDIA_PROJECTION`-Berechtigung benötigt; `NeuralAudioViewModel` plant
+   Live-Aufnahme nur als Zukunftsoption). Damit ist der Foreground-Service
+   konsistent mit `foregroundServiceType="specialUse"`.
 
 2. `SonoraNotificationListener` ist `android:exported="true"` und verlangt
    `BIND_NOTIFICATION_LISTENER_SERVICE` plus explizite Nutzerfreigabe in den

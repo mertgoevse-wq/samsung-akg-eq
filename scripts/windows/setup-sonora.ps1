@@ -139,7 +139,7 @@ if (-not (Test-Path $platformToolsDir)) { $missing += "platform-tools" }
 
 if ($missing.Count -gt 0) {
     Write-Host "Fehlende Android SDK-Komponenten: $($missing -join ', ')" -ForegroundColor Yellow
-    if ($Test-Command -and (Test-Path $sdkmanager)) {
+    if (Test-Path $sdkmanager) {
         foreach ($comp in $missing) {
             Write-Host "Installiere $comp via sdkmanager ..." -ForegroundColor Yellow
             $args = @("sdkmanager", `"$comp`"")
