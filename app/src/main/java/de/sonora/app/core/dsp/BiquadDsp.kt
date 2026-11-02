@@ -213,7 +213,7 @@ class BiquadStage(
     private var v2 = 0.0
 
     // Glaettungsfaktor pro Sample (~20 ms Einstellzeit bei 44.1 kHz)
-    private var smoothingFactor = 1.0 - exp(-1.0 / (sampleRate.toDouble() * 0.020))
+    private var smoothingFactor = 1.0 - kotlin.math.exp(-1.0 / (sampleRate.toDouble() * 0.020))
 
     /**
      * Neue Ziel-Koeffizienten setzen. Der Uebergang zum alten Satz erfolgt
@@ -235,7 +235,7 @@ class BiquadStage(
         // Zustande zuruecksetzen, um Klicks bei Rate-Wechsel zu vermeiden
         v1 = 0.0
         v2 = 0.0
-        smoothingFactor = 1.0 - exp(-1.0 / (sampleRate.toDouble() * 0.020))
+        smoothingFactor = 1.0 - kotlin.math.exp(-1.0 / (sampleRate.toDouble() * 0.020))
     }
 
     fun getSampleRate(): Int = sampleRate
@@ -275,7 +275,7 @@ class BiquadStage(
 
     /** Linken und rechten Kanal eines Stereo-Paares in-place verarbeiten (gleiche Koeffizienten). */
     fun processStereo(left: FloatArray, right: FloatArray, count: Int = left.size) {
-        val safeCount = count.coerceIn(0, left.size).also { c -> coerceIn(0, right.size) }
+        val safeCount = count.coerceIn(0, left.size).coerceAtMost(right.size)
         for (i in 0 until safeCount) {
             left[i] = processSample(left[i])
             right[i] = processSample(right[i])

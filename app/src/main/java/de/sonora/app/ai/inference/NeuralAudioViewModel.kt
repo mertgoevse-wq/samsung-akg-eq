@@ -172,8 +172,9 @@ class NeuralAudioViewModel(application: Application) : AndroidViewModel(applicat
                 )
             }
 
-            // Verify GPU (runs actual inference — executionVerified only after a successful run)
+            // Verify GPU and NPU (runs actual inference — executionVerified only after a successful run)
             verifyGpuBackend()
+            verifyNpuBackend()
         }
     }
 
@@ -195,6 +196,28 @@ class NeuralAudioViewModel(application: Application) : AndroidViewModel(applicat
                 )
             } catch (e: Exception) {
                 Log.w("NeuralAudioViewModel", "GPU verification failed: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * NPU verification runs an actual inference to confirm execution.
+     * Only when executionVerified is true does NPU count as operational.
+     */
+    private fun verifyNpuBackend() {
+        inferenceScope.launch(Dispatchers.IO) {
+            try {
+                val npuResult = engine.initializeNpu()
+                _backendCapabilities = _backendCapabilities.copy(
+                    npu = BackendCapabilityInfo(
+                        name = "NPU (Exynos AI LiteCore / NNAPI)",
+                        supported = npuResult.supported,
+                        initializationSucceeded = npuResult.initializationSucceeded,
+                        executionVerified = npuResult.executionVerified
+                    )
+                )
+            } catch (e: Exception) {
+                Log.w("NeuralAudioViewModel", "NPU verification failed: ${e.message}")
             }
         }
     }

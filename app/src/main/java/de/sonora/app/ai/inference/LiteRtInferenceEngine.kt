@@ -338,6 +338,68 @@ class LiteRtInferenceEngine(
         return result
     }
 
+    /**
+     * NPU backend verification. Attempts NPU delegate initialization (LiteRT Accelerator.NPU
+     * over Android NNAPI) and runs a real inference to confirm execution. Reports honest status:
+     * executionVerified is true ONLY after a successful inference run on NPU.
+     *
+     * On Samsung Galaxy A56 (Exynos 1580) the NPU is accessible via NNAPI. LiteRT 2.3.0
+     * exposes it through CompiledModel.Options(Accelerator.NPU). If the device or driver
+     * does not support NPU delegation, this falls back gracefully with supported=false.
+     */
+    fun initializeNpu(): NpuBackendResult {
+        val result = NpuBackendResult()
+        var npuModel: CompiledModel? = null
+        try {
+            val assetManager = context.assets
+            npuModel = CompiledModel.create(
+                assetManager,
+                modelAssetName,
+                CompiledModel.Options(Accelerator.NPU),
+                null
+            )
+            result.supported = true
+            result.initializationSucceeded = true
+
+            // MUST run actual inference to verify NPU execution — not just model creation.
+            val inputBuffers = npuModel.createInputBuffers()
+            val outputBuffers = npuModel.createOutputBuffers()
+            if (inputBuffers.isEmpty() || outputBuffers.isEmpty()) {
+                result.executionVerified = false
+                result.failureReason = "NPU model created but has no I/O tensors"
+                result.cpuFallback = true
+                return result
+            }
+            val inputData = FloatArray(YAMNET_MIN_INPUT_SAMPLES) { 0f }
+            inputBuffers[0].writeFloat(inputData)
+            npuModel.run(inputBuffers, outputBuffers)
+
+            val output = outputBuffers[0].readFloat()
+            val valid = output.isNotEmpty() && output.all { !it.isNaN() && !it.isInfinite() }
+            inputBuffers.forEach { it.close() }
+            outputBuffers.forEach { it.close() }
+
+            if (valid) {
+                result.executionVerified = true
+                result.failureReason = null
+            } else {
+                result.executionVerified = false
+                result.failureReason = "NPU inference produced invalid output (NaN/Infinity/empty)"
+                result.cpuFallback = true
+            }
+        } catch (e: Exception) {
+            result.supported = false
+            result.initializationSucceeded = false
+            result.executionVerified = false
+            result.failureReason = "NPU initialization/inference failed: ${e.message}"
+            Log.w(TAG, "NPU delegate not available: ${e.message}")
+            result.cpuFallback = true
+        } finally {
+            try { npuModel?.close() } catch (_: Exception) {}
+        }
+        return result
+    }
+
     override fun release() {
         cleanupModel()
         initOk = false
@@ -368,6 +430,15 @@ class LiteRtInferenceEngine(
 
     /** GPU backend verification result. */
     data class GpuBackendResult(
+        var supported: Boolean = false,
+        var initializationSucceeded: Boolean = false,
+        var executionVerified: Boolean = false,
+        var failureReason: String? = null,
+        var cpuFallback: Boolean = false
+    )
+
+    /** NPU backend verification result. */
+    data class NpuBackendResult(
         var supported: Boolean = false,
         var initializationSucceeded: Boolean = false,
         var executionVerified: Boolean = false,

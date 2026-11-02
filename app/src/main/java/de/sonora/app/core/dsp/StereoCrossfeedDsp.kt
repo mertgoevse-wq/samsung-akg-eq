@@ -180,9 +180,9 @@ class StereoCrossfeedDsp(private var sampleRate: Int = 44100) {
         recomputeCoefficients(currentStrength)
     }
 
-    private fun onePoleSmoothing(sampleRate: Int): Float {
-        val sr = sampleRate.coerceAtLeast(1)
-        return (1.0f - kotlin.math.exp(-1.0f / (sr.toFloat() * 0.020f)).toFloat())
+    private fun onePoleSmoothing(sr: Int): Float {
+        val s = sr.coerceAtLeast(1)
+        return (1.0f - kotlin.math.exp(-1.0f / (s.toFloat() * 0.020f)).toFloat())
     }
 
     private fun flushDenormal(x: Float): Float =
