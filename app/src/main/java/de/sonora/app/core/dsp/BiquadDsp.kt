@@ -60,11 +60,11 @@ object BiquadDsp {
 
     /** Sichere Gain in dB. */
     internal fun safeGainDb(gainDb: Float): Float =
-        if (gainDb.isNaN() || gainDb.isInfinite()) 0f else gainDb.coerceIn(-MAX_DB, MAX_DB)
+        if (gainDb.isNaN() || gainDb.isInfinite()) 0f else gainDb.coerceIn(-MAX_DB.toFloat(), MAX_DB.toFloat())
 
     /** Sichere Q. */
     internal fun safeQ(q: Float): Float =
-        if (q.isNaN() || q.isInfinite() || q <= 0f) 1.0f else q.coerceIn(MIN_Q, MAX_Q)
+        if (q.isNaN() || q.isInfinite() || q <= 0f) 1.0f else q.coerceIn(MIN_Q.toFloat(), MAX_Q.toFloat())
 
     // -----------------------------------------------------------------------
     // RBJ Cookbook Koeffizienten (interne Double-Praezision, Ergebnis als Float)
@@ -113,7 +113,7 @@ object BiquadDsp {
         val f0 = safeFreq(centerFreqHz, sampleRate).toDouble()
         val fs = sampleRate.toDouble()
         val g = safeGainDb(gainDb)
-        val ss = if (slope.isNaN() || slope.isInfinite() || slope <= 0f) 1.0f else slope.coerceIn(0.4f, 5.0f).toDouble()
+        val ss = if (slope.isNaN() || slope.isInfinite() || slope <= 0f) 1.0 else slope.coerceIn(0.4f, 5.0f).toDouble()
         val a = 10.0.pow(g.toDouble() / 40.0)
         val w0 = 2.0 * PI * f0 / fs
         val sinW0 = sin(w0)
@@ -149,7 +149,7 @@ object BiquadDsp {
         val f0 = safeFreq(centerFreqHz, sampleRate).toDouble()
         val fs = sampleRate.toDouble()
         val g = safeGainDb(gainDb)
-        val ss = if (slope.isNaN() || slope.isInfinite() || slope <= 0f) 1.0f else slope.coerceIn(0.4f, 5.0f).toDouble()
+        val ss = if (slope.isNaN() || slope.isInfinite() || slope <= 0f) 1.0 else slope.coerceIn(0.4f, 5.0f).toDouble()
         val a = 10.0.pow(g.toDouble() / 40.0)
         val w0 = 2.0 * PI * f0 / fs
         val sinW0 = sin(w0)

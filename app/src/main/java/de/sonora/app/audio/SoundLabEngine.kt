@@ -24,17 +24,13 @@ class SoundLabEngine(
     val sampleRate: Int = 44100
 ) {
 
-    enum class SignalType {
-        WARM_SYNTH_CHORD,
-        PINK_NOISE,
-        ACOUSTIC_PULSE
-    }
+    typealias SignalType = SoundLabGenerator.SignalType
 
     /** Reine Signal-Erzeugung (AudioTrack-frei, JVM-testbar). */
     internal val generator = SoundLabGenerator(sampleRate = sampleRate)
 
     /** Offentlich zugaenglicher Flanger (z. B. für XY-Touch-Steuerung aus der UI). */
-    val flanger: FlangerDsp = generator.flanger
+    val flanger: FlangerDsp get() = generator.flanger
 
     private val isRunning = AtomicBoolean(false)
     private var audioTrack: AudioTrack? = null
@@ -129,7 +125,7 @@ class SoundLabEngine(
  * damit das Signal chunk-übergreifend kontinuierlich bleibt.
  */
 class SoundLabGenerator(
-    sampleRate: Int = 44100
+    var sampleRate: Int = 44100
 ) {
 
     enum class SignalType {
@@ -138,7 +134,7 @@ class SoundLabGenerator(
         ACOUSTIC_PULSE
     }
 
-    val flanger = FlangerDsp(sampleRate = sampleRate)
+    var flanger = FlangerDsp(sampleRate = sampleRate)
 
     // Synthese-Zustand (zwischen Chunks erhalten)
     var synthPhase1 = 0.0
@@ -154,8 +150,10 @@ class SoundLabGenerator(
 
     fun getSampleRate(): Int = sampleRate
 
-    fun setSampleRate(sampleRate: Int) {
-        flanger.setSampleRate(sampleRate)
+    fun setSampleRate(newSampleRate: Int) {
+        val safe = newSampleRate.coerceAtLeast(1)
+        sampleRate = safe
+        flanger = FlangerDsp(sampleRate = safe)
     }
 
     /** Setzt den internen Synthese- und Flanger-Zustand zurueck. */
