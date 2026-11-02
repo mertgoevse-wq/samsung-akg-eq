@@ -22,7 +22,7 @@ import kotlin.math.pow
  * - Sample-rate-aware (Verzoegerung in Samples abhaengig von Abtastrate)
  * - Reine Kotlin-Implementierung, JVM-testbar, keine Android-Abhaengigkeit
  */
-class StereoCrossfeedDsp(sampleRate: Int = 44100) {
+class StereoCrossfeedDsp(private var sampleRate: Int = 44100) {
 
     private val biquad = BiquadDsp()
 
@@ -47,14 +47,14 @@ class StereoCrossfeedDsp(sampleRate: Int = 44100) {
 
     fun getSampleRate(): Int = sampleRate
 
-    fun setSampleRate(sampleRate: Int) {
-        this.sampleRate = sampleRate.coerceAtLeast(1)
+    fun setSampleRate(newSampleRate: Int) {
+        sampleRate = newSampleRate.coerceAtLeast(1)
         // Puffer zuruecksetzen (keine Alt-Proben uebernehmen bei Rate-Wechsel)
         leftDelay.fill(0f)
         rightDelay.fill(0f)
         leftWrite = 0
         rightWrite = 0
-        smoothingFactor = onePoleSmoothing(this.sampleRate)
+        smoothingFactor = onePoleSmoothing(sampleRate)
         recomputeDelay()
     }
 
@@ -109,7 +109,6 @@ class StereoCrossfeedDsp(sampleRate: Int = 44100) {
     // Intern
     // -----------------------------------------------------------------------
 
-    private var sampleRate: Int
     private var delaySamples: Int = 1
     private var crossGain: Float = 0f
     private var directGain: Float = 1f

@@ -18,7 +18,7 @@ package de.sonora.app.core.dsp
  * Ergänzt [Limiter] (Gain-Staging/Headroom-Rechner in de.sonora.app.core)
  * um eine wirkliche Probenbegrenzung im Signalweg.
  */
-class PeakLimiterDsp(sampleRate: Int = 44100) {
+class PeakLimiterDsp(private var sampleRate: Int = 44100) {
 
     private val biquad = BiquadDsp()
 
@@ -42,14 +42,13 @@ class PeakLimiterDsp(sampleRate: Int = 44100) {
 
     fun getSampleRate(): Int = sampleRate
 
-    fun setSampleRate(sampleRate: Int) {
-        this.sampleRate = sampleRate.coerceAtLeast(1)
-        smoothingFactor = onePoleSmoothing(this.sampleRate)
-        attackCoeff = attackCoefficient(this.sampleRate)
-        releaseCoeff = releaseCoefficient(this.sampleRate)
+    fun setSampleRate(newSampleRate: Int) {
+        sampleRate = newSampleRate.coerceAtLeast(1)
+        smoothingFactor = onePoleSmoothing(sampleRate)
+        attackCoeff = attackCoefficient(sampleRate)
+        releaseCoeff = releaseCoefficient(sampleRate)
     }
 
-    private var sampleRate: Int
     private var attackCoeff: Float = attackCoefficient(44100)
     private var releaseCoeff: Float = releaseCoefficient(44100)
 
@@ -124,22 +123,22 @@ class PeakLimiterDsp(sampleRate: Int = 44100) {
     // Intern
     // -----------------------------------------------------------------------
 
-    private fun attackCoefficient(sampleRate: Int): Float {
-        return onePoleCoeff(0.001f, sampleRate) // ~1 ms Attack
+    private fun attackCoefficient(sr: Int): Float {
+        return onePoleCoeff(0.001f, sr) // ~1 ms Attack
     }
 
-    private fun releaseCoefficient(sampleRate: Int): Float {
-        return onePoleCoeff(0.050f, sampleRate) // ~50 ms Release
+    private fun releaseCoefficient(sr: Int): Float {
+        return onePoleCoeff(0.050f, sr) // ~50 ms Release
     }
 
-    private fun onePoleCoeff(timeSeconds: Float, sampleRate: Int): Float {
-        val sr = sampleRate.coerceAtLeast(1)
-        return 1.0f - kotlin.math.exp(-1.0f / (sr.toFloat() * timeSeconds)).toFloat()
+    private fun onePoleCoeff(timeSeconds: Float, sr: Int): Float {
+        val s = sr.coerceAtLeast(1)
+        return 1.0f - kotlin.math.exp(-1.0f / (s.toFloat() * timeSeconds)).toFloat()
     }
 
-    private fun onePoleSmoothing(sampleRate: Int): Float {
-        val sr = sampleRate.coerceAtLeast(1)
-        return (1.0f - kotlin.math.exp(-1.0f / (sr.toFloat() * 0.020f)).toFloat())
+    private fun onePoleSmoothing(sr: Int): Float {
+        val s = sr.coerceAtLeast(1)
+        return (1.0f - kotlin.math.exp(-1.0f / (s.toFloat() * 0.020f)).toFloat())
     }
 
     private fun flushDenormal(x: Float): Float =

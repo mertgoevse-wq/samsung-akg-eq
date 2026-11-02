@@ -19,7 +19,7 @@ import kotlin.math.pow
  * - Sample-rate-aware (Attack/Release in Samples abhaengig von Abtastrate)
  * - Reine Kotlin-Implementierung, JVM-testbar, keine Android-Abhaengigkeit
  */
-class CompressorDsp(sampleRate: Int = 44100) {
+class CompressorDsp(private var sampleRate: Int = 44100) {
 
     private val biquad = BiquadDsp()
 
@@ -62,14 +62,12 @@ class CompressorDsp(sampleRate: Int = 44100) {
 
     fun getSampleRate(): Int = sampleRate
 
-    fun setSampleRate(sampleRate: Int) {
-        this.sampleRate = sampleRate.coerceAtLeast(1)
-        smoothingFactor = onePoleSmoothing(this.sampleRate)
+    fun setSampleRate(newSampleRate: Int) {
+        sampleRate = newSampleRate.coerceAtLeast(1)
+        smoothingFactor = onePoleSmoothing(sampleRate)
         attackCoeff = attackCoefficient(sampleRate)
         releaseCoeff = releaseCoefficient(sampleRate)
     }
-
-    private var sampleRate: Int
 
     fun isEnabled(): Boolean = enabled
 
@@ -178,19 +176,19 @@ class CompressorDsp(sampleRate: Int = 44100) {
     private var attackCoeff: Float = attackCoefficient(44100)
     private var releaseCoeff: Float = releaseCoefficient(44100)
 
-    private fun attackCoefficient(sampleRate: Int): Float {
+    private fun attackCoefficient(sr: Int): Float {
         // ~5 ms Attack
-        return onePoleCoeff(0.005f, sampleRate)
+        return onePoleCoeff(0.005f, sr)
     }
 
-    private fun releaseCoefficient(sampleRate: Int): Float {
+    private fun releaseCoefficient(sr: Int): Float {
         // ~100 ms Release
-        return onePoleCoeff(0.100f, sampleRate)
+        return onePoleCoeff(0.100f, sr)
     }
 
-    private fun onePoleCoeff(timeSeconds: Float, sampleRate: Int): Float {
-        val sr = sampleRate.coerceAtLeast(1)
-        return 1.0f - kotlin.math.exp(-1.0f / (sr.toFloat() * timeSeconds)).toFloat()
+    private fun onePoleCoeff(timeSeconds: Float, sr: Int): Float {
+        val s = sr.coerceAtLeast(1)
+        return 1.0f - kotlin.math.exp(-1.0f / (s.toFloat() * timeSeconds)).toFloat()
     }
 
     /** Gain in dB fuer einen gegebenen Pegel (envDb) berechnen. */
@@ -230,9 +228,9 @@ class CompressorDsp(sampleRate: Int = 44100) {
         }
     }
 
-    private fun onePoleSmoothing(sampleRate: Int): Float {
-        val sr = sampleRate.coerceAtLeast(1)
-        return (1.0f - kotlin.math.exp(-1.0f / (sr.toFloat() * 0.020f)).toFloat())
+    private fun onePoleSmoothing(sr: Int): Float {
+        val s = sr.coerceAtLeast(1)
+        return (1.0f - kotlin.math.exp(-1.0f / (s.toFloat() * 0.020f)).toFloat())
     }
 
     private fun flushDenormal(x: Float): Float =

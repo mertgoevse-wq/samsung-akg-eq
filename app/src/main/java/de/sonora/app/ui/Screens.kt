@@ -398,10 +398,12 @@ private fun ParticleFieldHeroCard(
                 checked = state.playbackVisualizationEnabled,
                 enabled = state.playbackVisualizationEnabled || hasPermission(context, Manifest.permission.RECORD_AUDIO),
                 onCheckedChange = onVisualizerEnabledChange,
-                modifier = Modifier.semantics {
-                    role = Role.Switch
-                    contentDescription = "Visualizer für Systemausgang ein- oder ausschalten"
-                }
+                modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .semantics {
+                        role = Role.Switch
+                        contentDescription = "Visualizer für Systemausgang ein- oder ausschalten"
+                    }
             )
         }
 
@@ -672,6 +674,7 @@ private fun HeroHeader(
                 checked = masterEnabled,
                 onCheckedChange = onMasterChange,
                 modifier = Modifier
+                    .heightIn(min = 48.dp)
                     .semantics {
                         role = Role.Switch
                         contentDescription = if (masterEnabled) "Sonora Hauptschalter ist eingeschaltet" else "Sonora Hauptschalter ist ausgeschaltet"
@@ -901,13 +904,31 @@ private fun EnvironmentHeroCard(
                     color = Muted
                 )
             }
-            Switch(checked = state.autoAdjust, onCheckedChange = { enabled ->
-                if (enabled && !hasPermission(context, Manifest.permission.RECORD_AUDIO)) {
-                    microphoneLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                } else {
-                    onAutoAdjust(enabled)
-                }
-            })
+            Switch(
+                checked = state.autoAdjust,
+                onCheckedChange = { enabled ->
+                    if (enabled && !hasPermission(context, Manifest.permission.RECORD_AUDIO)) {
+                        microphoneLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    } else {
+                        onAutoAdjust(enabled)
+                    }
+                },
+                modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .semantics {
+                        role = Role.Switch
+                        contentDescription = if (state.autoAdjust)
+                            "Umgebungsanpassung ist eingeschaltet"
+                        else
+                            "Umgebungsanpassung ist ausgeschaltet"
+                    },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Ink,
+                    checkedTrackColor = Copper,
+                    uncheckedThumbColor = Muted,
+                    uncheckedTrackColor = Surface2
+                )
+            )
         }
     }
 }

@@ -1,5 +1,0 @@
-Traceback (most recent call last):
-  File "C:\Users\Win11 Pro\Documents\samsung-akg-eq\tmp_run_variants.py", line 20, in <module>
-    out = tf.read()
-  File "<frozen codecs>", line 325, in decode
-UnicodeDecodeError: 'utf-8' codec can't decode byte 0x81 in position 581: invalid start byte

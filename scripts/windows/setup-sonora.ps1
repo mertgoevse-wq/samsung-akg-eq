@@ -142,7 +142,7 @@ if ($missing.Count -gt 0) {
     if (Test-Path $sdkmanager) {
         foreach ($comp in $missing) {
             Write-Host "Installiere $comp via sdkmanager ..." -ForegroundColor Yellow
-            $args = @("sdkmanager", `"$comp`"")
+            $args = @("sdkmanager", $comp)
             if ($AcceptLicenses) { $args += @("--licenses") }
             & $sdkmanager $args 2>$null
         }
@@ -203,5 +203,5 @@ try {
 Write-Host "=============================================================" -ForegroundColor Cyan
 Write-Host " Setup abgeschlossen." -ForegroundColor Cyan
 Write-Host " Prufe die Installation mit: .\scripts\windows\doctor-sonora.ps1" -ForegroundColor Cyan
-Write-Host " Baue das Projekt mit:       cd $RepoRoot && .\gradlew.bat tasks" -ForegroundColor Cyan
+Write-Host " Baue das Projekt mit:       cd $RepoRoot; .\gradlew.bat tasks" -ForegroundColor Cyan
 Write-Host "=============================================================" -ForegroundColor Cyan
