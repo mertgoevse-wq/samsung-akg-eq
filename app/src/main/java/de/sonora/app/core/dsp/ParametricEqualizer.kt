@@ -1,6 +1,7 @@
 package de.sonora.app.core.dsp
 
 import kotlin.math.PI
+import kotlin.math.pow
 
 /**
  * Parametrischer Equalizer als echte PCM-Sample-Prozessoren.
@@ -44,7 +45,6 @@ class ParametricEqualizer(sampleRate: Int = 44100) {
 
     private var enabled: Boolean = true
 
-    private val biquad = BiquadDsp()
     private var smoothingFactor: Float
 
     init {
@@ -101,15 +101,12 @@ class ParametricEqualizer(sampleRate: Int = 44100) {
         // Preamp stetig an den Zielwert annaehern
         currentPreampDb += (targetPreampDb - currentPreampDb) * preampSmoothing
         val preampLinear = if (currentPreampDb.isNaN() || currentPreampDb.isInfinite()) 1f
-            else kotlin.math.pow(10.0, currentPreampDb.toDouble() / 20.0).toFloat()
+            else 10.0.pow(currentPreampDb.toDouble() / 20.0).toFloat()
 
         var x = input * preampLinear
 
-        // Durch alle Biquad-Stufen (jeder aktive Baender eine Stufe)
-        for (stage in chain) {
-            x = stage.processSample(x)
-            if (x.isNaN() || x.isInfinite()) x = 0f
-        }
+        // Durch alle Biquad-Stufen verarbeiten
+        x = chain.processSample(x)
 
         return flushDenormal(x)
     }

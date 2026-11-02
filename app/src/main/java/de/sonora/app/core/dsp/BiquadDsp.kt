@@ -81,7 +81,7 @@ object BiquadDsp {
         val fs = sampleRate.toDouble()
         val g = safeGainDb(gainDb)
         val qq = safeQ(q).toDouble()
-        val a = pow(10.0, g / 40.0)
+        val a = 10.0.pow(g.toDouble() / 40.0)
         val w0 = 2.0 * PI * f0 / fs
         val sinW0 = sin(w0)
         val cosW0 = cos(w0)
@@ -114,7 +114,7 @@ object BiquadDsp {
         val fs = sampleRate.toDouble()
         val g = safeGainDb(gainDb)
         val ss = if (slope.isNaN() || slope.isInfinite() || slope <= 0f) 1.0f else slope.coerceIn(0.4f, 5.0f).toDouble()
-        val a = pow(10.0, g / 40.0)
+        val a = 10.0.pow(g.toDouble() / 40.0)
         val w0 = 2.0 * PI * f0 / fs
         val sinW0 = sin(w0)
         val cosW0 = cos(w0)
@@ -150,7 +150,7 @@ object BiquadDsp {
         val fs = sampleRate.toDouble()
         val g = safeGainDb(gainDb)
         val ss = if (slope.isNaN() || slope.isInfinite() || slope <= 0f) 1.0f else slope.coerceIn(0.4f, 5.0f).toDouble()
-        val a = pow(10.0, g / 40.0)
+        val a = 10.0.pow(g.toDouble() / 40.0)
         val w0 = 2.0 * PI * f0 / fs
         val sinW0 = sin(w0)
         val cosW0 = cos(w0)
@@ -191,7 +191,6 @@ class BiquadStage(
     sampleRate: Int,
     initial: BiquadCoefficients = BiquadDsp.flat()
 ) {
-    private val biquad = BiquadDsp()
     private var sampleRate = sampleRate.coerceAtLeast(1)
 
     // Ziel-Koeffizienten (von aussen gesetzt)
@@ -294,7 +293,7 @@ class BiquadStage(
  * Stufe-Filtern (z. B. ein ganzes Equalizer-Konzept mit mehreren Baendern).
  */
 class BiquadFilterChain(
-    sampleRate: Int,
+    private var sampleRate: Int,
     internal val stages: MutableList<BiquadStage> = mutableListOf()
 ) {
     fun addStage(coeffs: BiquadCoefficients = BiquadDsp.flat()) {
@@ -307,6 +306,7 @@ class BiquadFilterChain(
     }
 
     fun setSampleRate(sampleRate: Int) {
+        this.sampleRate = sampleRate
         stages.forEach { it.setSampleRate(sampleRate) }
     }
 

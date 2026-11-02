@@ -24,8 +24,6 @@ import kotlin.math.pow
  */
 class StereoCrossfeedDsp(private var sampleRate: Int = 44100) {
 
-    private val biquad = BiquadDsp()
-
     /** Verzögerungszeile fuer den linken Kanal (Puffer fuer Uebersprechen nach rechts). */
     private val leftDelay = FloatArray(64)
     private var leftWrite = 0
@@ -154,7 +152,7 @@ class StereoCrossfeedDsp(private var sampleRate: Int = 44100) {
         val index0 = readPos.toInt()
         val index1 = (index0 + 1) % size
         val frac = readPos - index0
-        return (1f - frac) * buffer[index0] + frac * buffer[index1]
+        return ((1.0 - frac) * buffer[index0] + frac * buffer[index1]).toFloat()
     }
 
     private fun setStrengthInternal(strength: Float) {
@@ -172,7 +170,7 @@ class StereoCrossfeedDsp(private var sampleRate: Int = 44100) {
         // Uebersprechen typischerweise -18 dB bis -8 dB relativer zum Direktkanal
         val crossfeedDb = -18f + (10f * safe)
         crossGain = if (crossfeedDb.isNaN() || crossfeedDb.isInfinite()) 0f
-            else pow(10.0, crossfeedDb.toDouble() / 20.0).toFloat()
+            else 10.0.pow(crossfeedDb.toDouble() / 20.0).toFloat()
         directGain = 1.0f - (crossGain * 0.35f) // RMS-Leistung erhalten
     }
 

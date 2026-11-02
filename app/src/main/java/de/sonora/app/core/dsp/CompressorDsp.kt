@@ -21,8 +21,6 @@ import kotlin.math.pow
  */
 class CompressorDsp(private var sampleRate: Int = 44100) {
 
-    private val biquad = BiquadDsp()
-
     /** Ziel-Threshold in dBFS (0 = 0 dBFS, negativer Wert = leiser). */
     var targetThresholdDb: Float = -20f
         private set
@@ -134,7 +132,7 @@ class CompressorDsp(private var sampleRate: Int = 44100) {
 
         // 6. Linearen Gain anwenden
         val gainLinear = if (totalGainDb.isNaN() || totalGainDb.isInfinite()) 1f
-            else kotlin.math.pow(10.0, totalGainDb.toDouble() / 20.0).toFloat()
+            else 10.0.pow(totalGainDb.toDouble() / 20.0).toFloat()
 
         return flushDenormal(input * gainLinear)
     }
@@ -241,6 +239,6 @@ class CompressorDsp(private var sampleRate: Int = 44100) {
     companion object {
         fun dbToLinear(db: Float): Float =
             if (db.isNaN() || db.isInfinite()) 1f
-            else kotlin.math.pow(10.0, db.toDouble() / 20.0).toFloat()
+            else 10.0.pow(db.toDouble() / 20.0).toFloat()
     }
 }

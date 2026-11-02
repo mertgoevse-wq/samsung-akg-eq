@@ -19,7 +19,6 @@ import kotlin.math.pow
  */
 class VoiceFocusDsp(private var sampleRate: Int = 44100) {
 
-    private val biquad = BiquadDsp()
     private val peakStage = BiquadStage(sampleRate, peakingCoefficients(2000f, 6f, 1.2f, sampleRate))
 
     private var targetIntensity: Float = 1.0f

@@ -1,5 +1,7 @@
 package de.sonora.app.core.dsp
 
+import kotlin.math.pow
+
 /**
  * Preamp-Vorverstaerkung mit Headroom-Management als echte PCM-Sample-Prozessoren.
  *
@@ -13,8 +15,6 @@ package de.sonora.app.core.dsp
  * - Reine Kotlin-Implementierung, JVM-testbar, keine Android-Abhaengigkeit
  */
 class PreampDsp(private var sampleRate: Int = 44100) {
-
-    private val biquad = BiquadDsp()
 
     /** Ziel-Vorverstaerkung in dB (extern gesetzt). */
     var targetGainDb: Float = 0f
@@ -73,7 +73,7 @@ class PreampDsp(private var sampleRate: Int = 44100) {
         val safeGainDb = kotlin.math.min(currentGainDb, headroomDb)
 
         val gainLinear = if (safeGainDb.isNaN() || safeGainDb.isInfinite()) 1f
-            else kotlin.math.pow(10.0, safeGainDb.toDouble() / 20.0).toFloat()
+            else 10.0.pow(safeGainDb.toDouble() / 20.0).toFloat()
 
         return flushDenormal(input * gainLinear)
     }
@@ -120,6 +120,6 @@ class PreampDsp(private var sampleRate: Int = 44100) {
         /** Umrechnung von dB in linearen Gain-Faktor. */
         fun dbToLinear(db: Float): Float =
             if (db.isNaN() || db.isInfinite()) 1f
-            else kotlin.math.pow(10.0, db.toDouble() / 20.0).toFloat()
+            else 10.0.pow(db.toDouble() / 20.0).toFloat()
     }
 }

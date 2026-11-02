@@ -1,5 +1,7 @@
 package de.sonora.app.core.dsp
 
+import kotlin.math.pow
+
 /**
  * Sample-domain Peak-Limiter als echter PCM-Sample-Prozessor.
  *
@@ -19,8 +21,6 @@ package de.sonora.app.core.dsp
  * um eine wirkliche Probenbegrenzung im Signalweg.
  */
 class PeakLimiterDsp(private var sampleRate: Int = 44100) {
-
-    private val biquad = BiquadDsp()
 
     /** Ziel-Ceiling in dBFS (0 = 0 dBFS, negativer Wert dämpft). */
     var targetCeilingDb: Float = -1f
@@ -90,7 +90,7 @@ class PeakLimiterDsp(private var sampleRate: Int = 44100) {
         val gainDb = if (exceedDb > 0f) -exceedDb else 0f
 
         val gainLinear = if (gainDb.isNaN() || gainDb.isInfinite()) 1f
-            else kotlin.math.pow(10.0, gainDb.toDouble() / 20.0).toFloat()
+            else 10.0.pow(gainDb.toDouble() / 20.0).toFloat()
 
         return flushDenormal(input * gainLinear)
     }
@@ -149,6 +149,6 @@ class PeakLimiterDsp(private var sampleRate: Int = 44100) {
     companion object {
         fun dbToLinear(db: Float): Float =
             if (db.isNaN() || db.isInfinite()) 1f
-            else kotlin.math.pow(10.0, db.toDouble() / 20.0).toFloat()
+            else 10.0.pow(db.toDouble() / 20.0).toFloat()
     }
 }

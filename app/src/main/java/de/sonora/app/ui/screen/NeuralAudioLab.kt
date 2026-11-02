@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -219,12 +220,12 @@ private fun NeuralAudioHeader(
 }
 
 @Composable
-private fun InfoChip(label: String, value: String) {
+private fun RowScope.InfoChip(label: String, value: String) {
     Surface(
         color = Surface2,
         shape = RoundedCornerShape(12.dp),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp, CardBorder.copy(alpha = 0.6f), RoundedCornerShape(12.dp)
+        border = BorderStroke(
+            1.dp, CardBorder.copy(alpha = 0.6f)
         ),
         modifier = Modifier
             .weight(1f)
