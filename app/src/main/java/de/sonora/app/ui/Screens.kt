@@ -414,7 +414,8 @@ private fun ParticleFieldHeroCard(
             activeMode = state.particleMode,
             onModeChange = onModeChange,
             xyControlEnabled = true,
-            onXyChange = onTouchXy
+            onXyChange = onTouchXy,
+            isSyntheticSignal = state.soundLabActive
         )
 
         Spacer(Modifier.height(12.dp))

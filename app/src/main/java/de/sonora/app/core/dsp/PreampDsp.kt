@@ -12,7 +12,7 @@ package de.sonora.app.core.dsp
  * - Denormal-Schutz und NaN/Infinity-Resilienz
  * - Reine Kotlin-Implementierung, JVM-testbar, keine Android-Abhaengigkeit
  */
-class PreampDsp(sampleRate: Int = 44100) {
+class PreampDsp(private var sampleRate: Int = 44100) {
 
     private val biquad = BiquadDsp()
 
@@ -40,12 +40,10 @@ class PreampDsp(sampleRate: Int = 44100) {
 
     fun getSampleRate(): Int = sampleRate
 
-    fun setSampleRate(sampleRate: Int) {
-        this.sampleRate = sampleRate.coerceAtLeast(1)
-        smoothingFactor = onePoleSmoothing(this.sampleRate)
+    fun setSampleRate(newSampleRate: Int) {
+        sampleRate = newSampleRate.coerceAtLeast(1)
+        smoothingFactor = onePoleSmoothing(sampleRate)
     }
-
-    private var sampleRate: Int
 
     fun isEnabled(): Boolean = enabled
 
@@ -108,9 +106,9 @@ class PreampDsp(sampleRate: Int = 44100) {
     // Intern
     // -----------------------------------------------------------------------
 
-    private fun onePoleSmoothing(sampleRate: Int): Float {
-        val sr = sampleRate.coerceAtLeast(1)
-        return (1.0f - kotlin.math.exp(-1.0f / (sr.toFloat() * 0.020f)).toFloat())
+    private fun onePoleSmoothing(sr: Int): Float {
+        val s = sr.coerceAtLeast(1)
+        return (1.0f - kotlin.math.exp(-1.0f / (s.toFloat() * 0.020f)).toFloat())
     }
 
     private fun flushDenormal(x: Float): Float =

@@ -17,7 +17,7 @@ import kotlin.math.pow
  * - Sample-rate-aware
  * - Reine Kotlin-Implementierung, JVM-testbar, keine Android-Abhaengigkeit
  */
-class VoiceFocusDsp(sampleRate: Int = 44100) {
+class VoiceFocusDsp(private var sampleRate: Int = 44100) {
 
     private val biquad = BiquadDsp()
     private val peakStage = BiquadStage(sampleRate, peakingCoefficients(2000f, 6f, 1.2f, sampleRate))
@@ -34,11 +34,12 @@ class VoiceFocusDsp(sampleRate: Int = 44100) {
 
     fun getSampleRate(): Int = sampleRate
 
-    fun setSampleRate(sampleRate: Int) {
-        this.sampleRate = sampleRate.coerceAtLeast(1)
-        peakStage.setSampleRate(this.sampleRate)
-        peakStage.setCoefficients(peakingCoefficients(2000f, 6f, 1.2f, this.sampleRate))
-        smoothingFactor = onePoleSmoothing(this.sampleRate)
+    fun setSampleRate(newSampleRate: Int) {
+        val sr = newSampleRate.coerceAtLeast(1)
+        sampleRate = sr
+        peakStage.setSampleRate(sr)
+        peakStage.setCoefficients(peakingCoefficients(2000f, 6f, 1.2f, sr))
+        smoothingFactor = onePoleSmoothing(sr)
     }
 
     fun isEnabled(): Boolean = enabled
@@ -99,8 +100,6 @@ class VoiceFocusDsp(sampleRate: Int = 44100) {
     // -----------------------------------------------------------------------
     // Intern
     // -----------------------------------------------------------------------
-
-    private var sampleRate: Int
 
     private fun peakingCoefficients(freqHz: Float, gainDb: Float, q: Float, sr: Int): BiquadCoefficients {
         val g = if (gainDb.isNaN() || gainDb.isInfinite()) 0f else gainDb.coerceIn(-24f, 24f)

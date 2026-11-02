@@ -62,13 +62,14 @@ object PcmPreprocessor {
     /**
      * Normalisiert Audio auf den Bereich [-1, 1].
      *
-     * Hinweis: Für YAMNet-Input darf hier keine Peak-Normalisierung angewendet werden,
-     * da diese die Signal-Dynamik verzerrt. Verwenden Sie stattdessen [clampToUnitRange].
-     * Diese Methode bleibt aus Abwärtskompatibilität erhalten und delegiert an
-     * [normalizeToUnitRange].
+     * Für YAMNet-Input wird hier **keine** Peak-Normalisierung angewendet, da diese
+     * die Signal-Dynamik verzerrt. Stattdessen wird [clampToUnitRange] verwendet,
+     * sodass Werte außerhalb von [-1, 1] geklemmt werden, während die Dynamik im
+     * gültigen Bereich erhalten bleibt. Dies ist die empfohlene Normalisierung
+     * für YAMNet-Modell-Input.
      */
     fun normalize(input: FloatArray): FloatArray {
-        return normalizeToUnitRange(input)
+        return clampToUnitRange(input)
     }
 
     /**

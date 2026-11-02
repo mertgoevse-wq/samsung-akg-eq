@@ -121,14 +121,15 @@ Gerät; keine Modell-Downloads zur Laufzeit.
 | Punkt | Status | Empfehlung |
 |---|---|---|
 | Keine Internet-Berechtigung | ✅ | Beibehalten |
-| Minimale Berechtigungen | ⚠️ | `FOREGROUND_SERVICE_MEDIA_PROJECTION`/`MEDIA_PROJECTION` prüfen, ggf. entfernen |
-| Foreground-Service-Typ konsistent | ❌ | `mediaProjection`-Typ ergänzen oder Berechtigung streichen |
+| Minimale Berechtigungen | ✅ | `FOREGROUND_SERVICE_MEDIA_PROJECTION`/`MEDIA_PROJECTION` entfernt (siehe Befund 1) |
+| Foreground-Service-Typ konsistent | ✅ | `specialUse` konsistent mit `SonoraService` (`foregroundServiceType="specialUse"`), kein `mediaProjection`-Typ nötig |
 | Exported Components geschützt | ✅ | Beibehalten |
 | Modell-Integrität geprüft | ✅ | SHA-256-Validierung bei Start |
 | JSON-Import validiert | ✅ | Beibehalten |
 | Keine Telemetrie / kein Audio-Upload | ✅ | Beibehalten |
 | Runtime-Permission-Dialoge nur bei Bedarf | ✅ | `RECORD_AUDIO` nur bei Live-Modus anfragen |
 
-**Offen:** Inkonsistenz zwischen `specialUse`-Foreground-Service und
-deklarierten MediaProjection-Berechtigungen (Manifest-Zeile 23–24). Vor dem
-Release klären, ob MediaProjection genutzt wird oder entfernt werden soll.
+**Offen:** Keine. MediaProjection-Berechtigungen wurden entfernt und der
+Foreground-Service-Typ `specialUse` ist konsistent mit dem deklarierten
+`SonoraService`. Kein `mediaProjection`-Typ erforderlich, da Sonora keine
+MediaProjection-Capture implementiert.

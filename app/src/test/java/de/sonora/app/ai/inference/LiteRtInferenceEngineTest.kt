@@ -298,4 +298,102 @@ class LiteRtInferenceEngineTest {
         buffer.clear()
         assertEquals(0, buffer.available())
     }
+
+    // --- RingBuffer thread-safety / invariant tests ---
+
+    @Test
+    fun ringBuffer_clearResetsReadLatestInvariants() {
+        val buffer = RingBuffer(1000)
+        buffer.write(FloatArray(500) { 0.7f })
+        assertEquals(500, buffer.available())
+        buffer.clear()
+        assertEquals(0, buffer.available())
+        // After clear(), readLatest must return empty — no stale data.
+        assertEquals(0, buffer.readLatest(100).size)
+    }
+
+    @Test
+    fun ringBuffer_readLatestDoesNotMutateBuffer() {
+        val buffer = RingBuffer(1000)
+        buffer.write(FloatArray(500) { 0.4f })
+        val before = buffer.available()
+        val latest = buffer.readLatest(200)
+        assertEquals(200, latest.size)
+        // Buffer state unchanged after readLatest.
+        assertEquals(before, buffer.available())
+    }
+
+    @Test
+    fun ringBuffer_readLatestPartialWhenFewerThanRequested() {
+        val buffer = RingBuffer(1000)
+        buffer.write(FloatArray(100) { 0.9f })
+        val latest = buffer.readLatest(500)
+        // Only 100 available; returns what's there.
+        assertEquals(100, latest.size)
+        assertTrue(latest.all { it == 0.9f })
+    }
+
+    @Test
+    fun ringBuffer_overwritesOldestWhenFull() {
+        val buffer = RingBuffer(1000)
+        buffer.write(FloatArray(1000) { 0.1f }) // fill completely
+        buffer.write(FloatArray(100) { 0.9f })   // overwrite oldest 100
+        assertEquals(1000, buffer.available())
+        val latest = buffer.readLatest(100)
+        assertEquals(100, latest.size)
+        assertTrue(latest.all { it == 0.9f })
+    }
+
+    @Test
+    fun ringBuffer_constructorRejectsNonPositiveCapacity() {
+        assertFailsWith<IllegalArgumentException> { RingBuffer(0) }
+        assertFailsWith<IllegalArgumentException> { RingBuffer(-1) }
+    }
+
+    @Test
+    fun ringBuffer_readLatestRejectsNegativeCount() {
+        val buffer = RingBuffer(1000)
+        assertFailsWith<IllegalArgumentException> { buffer.readLatest(-1) }
+    }
+
+    // --- LiteRtInferenceEngine lifecycle / validation tests (JVM, no model needed) ---
+
+    @Test
+    fun validateInput_rejectsNaNAndInfinityAndOutOfRange() {
+        val nan = FloatArray(15600) { Float.NaN }
+        assertNotNull(LiteRtInferenceEngine.validateInput(
+            AudioFeatures(monoPcm16k = nan, sampleRate = 16000)))
+
+        val inf = FloatArray(15600) { Float.NEGATIVE_INFINITY }
+        assertNotNull(LiteRtInferenceEngine.validateInput(
+            AudioFeatures(monoPcm16k = inf, sampleRate = 16000)))
+
+        val out = FloatArray(15600) { -1.5f }
+        assertNotNull(LiteRtInferenceEngine.validateInput(
+            AudioFeatures(monoPcm16k = out, sampleRate = 16000)))
+    }
+
+    @Test
+    fun validateInput_acceptsBoundaryMinusOneAndPlusOne() {
+        val audio = FloatArray(15600) { if (it % 2 == 0) 1f else -1f }
+        val features = AudioFeatures(monoPcm16k = audio, sampleRate = 16000)
+        assertNull(LiteRtInferenceEngine.validateInput(features))
+    }
+
+    @Test
+    fun gpuBackendResult_defaultsAllFalse() {
+        val result = LiteRtInferenceEngine.GpuBackendResult()
+        assertFalse(result.supported)
+        assertFalse(result.initializationSucceeded)
+        assertFalse(result.executionVerified)
+        assertNull(result.failureReason)
+        assertFalse(result.cpuFallback)
+    }
+
+    @Test
+    fun yamnetInputContractConstants() {
+        assertEquals(16000, LiteRtInferenceEngine.YAMNET_SAMPLE_RATE)
+        assertEquals(521, LiteRtInferenceEngine.YAMNET_CLASSES)
+        assertEquals(15600, LiteRtInferenceEngine.YAMNET_MIN_INPUT_SAMPLES)
+    }
 }

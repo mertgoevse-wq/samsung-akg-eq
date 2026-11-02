@@ -40,7 +40,7 @@ class ParametricEqualizer(sampleRate: Int = 44100) {
 
     private var targetPreampDb: Float = 0f
     private var currentPreampDb: Float = 0f
-    private val preampSmoothing: Float
+    private var preampSmoothing: Float
 
     private var enabled: Boolean = true
 
@@ -54,13 +54,15 @@ class ParametricEqualizer(sampleRate: Int = 44100) {
     }
 
     /** Aktuelle Abtastrate zurueckgeben. */
-    fun getSampleRate(): Int = chain.stageCount().let { sampleRate }
+    fun getSampleRate(): Int = storedSampleRate
 
     /** Neue Abtastrate setzen; interne Zustand werden zurueckgesetzt. */
     fun setSampleRate(sampleRate: Int) {
-        chain.setSampleRate(sampleRate)
-        smoothingFactor = onePoleSmoothing(sampleRate)
-        preampSmoothing = onePoleSmoothing(sampleRate)
+        val sr = sampleRate.coerceAtLeast(1)
+        storedSampleRate = sr
+        chain.setSampleRate(sr)
+        smoothingFactor = onePoleSmoothing(sr)
+        preampSmoothing = onePoleSmoothing(sr)
     }
 
     /** Ob der Equalizer insgesamt aktiv ist. */
