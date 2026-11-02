@@ -52,20 +52,21 @@ class StereoCrossfeedDspTest {
     }
 
     @Test
-    fun `Stärke 0 erzeugt kein hörbares Übersprechen (nach Einstellzeit)`() {
+    fun `Stärke 0 erzeugt das Bauer -18 dB Floor-Übersprechen (nicht null, aber minimal)`() {
         val cf = StereoCrossfeedDsp(sampleRate)
         cf.setTargetStrength(0.0f)
         for (i in 0 until 5000) cf.processSample(0f, 0f)
 
         val left = FloatArray(1024) { 0.5f }
         val right = FloatArray(1024) { 0f }
-        val lCopy = left.clone()
-        val rCopy = right.clone()
         cf.processStereo(left, right)
 
+        // Bauer-Spezifikation: auch bei Stärke 0 bleibt das Übersprechen am -18 dB Floor.
+        // crossGain = 10^(-18/20) ≈ 0.126, rechtes Signal ≈ 0.5 * 0.126 ≈ 0.063 (RMS)
         var rightEnergy = 0f
         for (i in right.indices) rightEnergy += right[i] * right[i]
-        assertTrue("Bei Stärke 0 bleibt rechter Kanal stumm ($rightEnergy)", rightEnergy < 0.001f)
+        val rms = kotlin.math.sqrt(rightEnergy / right.size)
+        assertTrue("Rechter Kanal beim Bauer -18 dB Floor (~0.063 rms, ist $rms)", kotlin.math.abs(rms - 0.063f) < 0.02f)
     }
 
     @Test
