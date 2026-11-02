@@ -256,8 +256,8 @@ class BiquadStage(
         v2 = cb2 * x - ca2 * y
 
         // 3. Denormal-Schutz auf Zustanden
-        v1 = biquad.flushDenormal(v1.toFloat()).toDouble()
-        v2 = biquad.flushDenormal(v2.toFloat()).toDouble()
+        v1 = BiquadDsp.flushDenormal(v1.toFloat()).toDouble()
+        v2 = BiquadDsp.flushDenormal(v2.toFloat()).toDouble()
 
         // 4. NaN/Infinity Resilienz am Ausgang
         val result = if (y.isNaN() || y.isInfinite()) 0.0 else y

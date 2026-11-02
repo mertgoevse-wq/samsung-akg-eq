@@ -15,7 +15,9 @@ package de.sonora.app.ai.inference
  * ausliest.
  */
 class RingBuffer(capacity: Int) {
-    require(capacity > 0) { "RingBuffer capacity must be positive, got $capacity" }
+    init {
+        require(capacity > 0) { "RingBuffer capacity must be positive, got $capacity" }
+    }
 
     private val buf = FloatArray(capacity)
     private val cap = capacity
