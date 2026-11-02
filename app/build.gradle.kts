@@ -49,6 +49,13 @@ android {
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
+
+    lint {
+        // Disables the third-party androidx.lifecycle detector that crashes with
+        // IncompatibleClassChangeError on Kotlin Analysis API KaCallableMemberCall.
+        // Sonora uses StateFlow and Compose State rather than LiveData.
+        disable += "NullSafeMutableLiveData"
+    }
 }
 
 dependencies {
