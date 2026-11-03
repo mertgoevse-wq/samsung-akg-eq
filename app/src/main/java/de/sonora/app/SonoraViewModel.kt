@@ -464,6 +464,12 @@ class SonoraViewModel(application: Application) : AndroidViewModel(application) 
         )
     }
 
+    fun toggleTuning432() {
+        de.sonora.app.core.Tuning432.toggle()
+        uiState = uiState.copy(tuning432Enabled = de.sonora.app.core.Tuning432.enabled)
+        applyEffective()
+    }
+
     fun clearMessage() {
         uiState = uiState.copy(message = null)
     }
