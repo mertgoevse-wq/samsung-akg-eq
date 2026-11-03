@@ -125,7 +125,7 @@ class SoundLabEngine(
  * damit das Signal chunk-übergreifend kontinuierlich bleibt.
  */
 class SoundLabGenerator(
-    var sampleRate: Int = 44100
+    private var sampleRate: Int = 44100
 ) {
 
     enum class SignalType {
