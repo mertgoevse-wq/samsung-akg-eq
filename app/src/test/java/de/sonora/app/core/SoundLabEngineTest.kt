@@ -77,8 +77,8 @@ class SoundLabEngineTest {
         for (i in 0 until 86) { // 86 * 512 ~ 44k Samples ~ 1 Sekunde
             val chunk = gen.generateChunk(SoundLabGenerator.SignalType.WARM_SYNTH_CHORD, 0.9f, 512)
             for (s in chunk) {
-                assertFalse(it.isNaN())
-                assertFalse(it.isInfinite())
+                assertFalse(s.isNaN())
+                assertFalse(s.isInfinite())
                 maxAbs = kotlin.math.max(maxAbs, kotlin.math.abs(s))
                 if (kotlin.math.abs(s) > 0.001f) anyNonZero = true
             }

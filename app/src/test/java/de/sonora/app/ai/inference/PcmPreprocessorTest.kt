@@ -38,7 +38,7 @@ class PcmPreprocessorTest {
         }
         val out = PcmPreprocessor.resample(input, 44100, 16000)
         // Expected length ~ 44100 / (44100/16000) = 16000
-        assertEquals(16000, out.size, 1)
+        assertEquals(16000, out.size)
         // All output values must remain within [-1, 1]
         assertTrue(out.all { v -> v >= -1f && v <= 1f })
     }
