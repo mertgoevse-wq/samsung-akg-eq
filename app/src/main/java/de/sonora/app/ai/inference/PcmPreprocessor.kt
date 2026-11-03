@@ -45,6 +45,7 @@ object PcmPreprocessor {
      *      und sollte für Produktionsaudio durch einen bandbegrenzten Resampler ersetzt werden.
      */
     fun resample(input: FloatArray, fromRate: Int, toRate: Int): FloatArray {
+        if (input.isEmpty()) return floatArrayOf()
         if (fromRate == toRate) return input.copyOf()
         val ratio = fromRate.toDouble() / toRate.toDouble()
         val outLen = (input.size / ratio).toInt().coerceAtLeast(1)
