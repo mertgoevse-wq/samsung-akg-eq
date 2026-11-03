@@ -105,7 +105,7 @@ class SoundLabEngineTest {
     }
 
     @Test
-    fun `Generator reagiert auf Lautstärke (Volume Jumps / Lautstärke-Sprünge)`() {
+    fun `Generator reagiert auf Lautstärke (Volume Jumps _ Lautstärke-Sprünge)`() {
         val gen = SoundLabGenerator(sampleRate = sampleRate)
         val quiet = gen.generateChunk(SoundLabGenerator.SignalType.WARM_SYNTH_CHORD, 0.1f, 512)
         gen.reset()
@@ -117,7 +117,7 @@ class SoundLabEngineTest {
     }
 
     @Test
-    fun `Audio-Dropout-Resilienz: leere/Stille-Chunks führen nicht zu NaN oder Blowup`() {
+    fun `Audio-Dropout-Resilienz_ leere_Stille-Chunks führen nicht zu NaN oder Blowup`() {
         val gen = SoundLabGenerator(sampleRate = sampleRate)
         // Viele stille Chunks (volume = 0) zwischen echten Signalen
         for (i in 0 until 100) {
@@ -152,7 +152,7 @@ class SoundLabEngineTest {
     }
 
     @Test
-    fun `NaN/Infinity am Eingang des Flangers werden nicht zum dauerhaften Ausfall`() {
+    fun `NaN_Infinity am Eingang des Flangers werden nicht zum dauerhaften Ausfall`() {
         val gen = SoundLabGenerator(sampleRate = sampleRate)
         val bad = floatArrayOf(Float.NaN, Float.POSITIVE_INFINITY, -Float.POSITIVE_INFINITY, 0.5f, 0f)
         val copy = bad.clone()
