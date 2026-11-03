@@ -45,7 +45,7 @@ class NpuDspAccelerator(private val context: Context) {
             if (inBufs.isEmpty() || outBufs.isEmpty()) {
                 inBufs.forEach { it.close() }
                 outBufs.forEach { it.close() }
-                cleanup()
+                release()
                 return false
             }
             inputBuffers = inBufs
@@ -59,7 +59,7 @@ class NpuDspAccelerator(private val context: Context) {
             initialized.set(true)
             true
         } catch (e: Exception) {
-            cleanup()
+            release()
             false
         }
     }
@@ -114,7 +114,7 @@ class NpuDspAccelerator(private val context: Context) {
         val safeGain = if (gainDb.isNaN() || gainDb.isInfinite()) 0f else gainDb.coerceIn(-12f, 12f)
         val safeQ = if (q.isNaN() || q.isInfinite() || q <= 0f) 1.0f else q.coerceIn(0.1f, 10f)
 
-        val a = 10f.pow(safeGain / 40f)
+        val a = kotlin.math.pow(10.0, (safeGain / 40f).toDouble()).toFloat()
         val w0 = (2f * kotlin.math.PI.toFloat() * safeFreq) / sampleRate
         val sinW0 = kotlin.math.sin(w0)
         val cosW0 = kotlin.math.cos(w0)
