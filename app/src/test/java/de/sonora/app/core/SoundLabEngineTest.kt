@@ -20,7 +20,7 @@ class SoundLabEngineTest {
     private val sampleRate = 44100
 
     @Test
-    fun `Generator erzeugt pro Chunk genau chunkSize Samples im Bereich [-1, 1]`() {
+    fun `Generator erzeugt pro Chunk genau chunkSize Samples im Bereich neg1 bis 1`() {
         val gen = SoundLabGenerator(sampleRate = sampleRate)
         val chunk = gen.generateChunk(SoundLabGenerator.SignalType.WARM_SYNTH_CHORD, 0.6f, 512)
         assertEquals(512, chunk.size)

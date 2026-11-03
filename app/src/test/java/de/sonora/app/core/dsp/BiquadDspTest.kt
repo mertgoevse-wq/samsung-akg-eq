@@ -37,8 +37,8 @@ class BiquadDspTest {
         val coeffs = BiquadDsp.lowShelf(200f, 6f, 1.0f, sampleRate)
         assertTrue(coeffs.isValid())
         // DC (niedrige Freq) sollte betont sein, hohe gegentwertig
-        val dc = freqResponse(coeffs, 20f)
-        val high = freqResponse(coeffs, 15000f)
+        val dc = freqResponseMag(coeffs, 20f)
+        val high = freqResponseMag(coeffs, 15000f)
         assertTrue("Tieffrequenz betont (dB > 0)", db(dc) > 0f)
         assertTrue("Hohe Frequenz nahe 0 dB", db(high) < 2f)
     }
@@ -47,8 +47,8 @@ class BiquadDspTest {
     fun `hochpass-regal dämpft tiefe Frequenzen und betont hohe`() {
         val coeffs = BiquadDsp.highShelf(5000f, 6f, 1.0f, sampleRate)
         assertTrue(coeffs.isValid())
-        val low = freqResponse(coeffs, 100f)
-        val high = freqResponse(coeffs, 15000f)
+        val low = freqResponseMag(coeffs, 100f)
+        val high = freqResponseMag(coeffs, 15000f)
         assertTrue("Niedrige Frequenz nahe 0 dB", db(low) < 2f)
         assertTrue("Hochfrequenz betont (dB > 0)", db(high) > 0f)
     }
@@ -56,7 +56,7 @@ class BiquadDspTest {
     @Test
     fun `peaking hat am Zentrumsfrequenz genau den eingestellten Gain`() {
         val coeffs = BiquadDsp.peaking(1000f, 6f, 1.414f, sampleRate)
-        val atCenter = freqResponse(coeffs, 1000f)
+        val atCenter = freqResponseMag(coeffs, 1000f)
         assertEquals(6f, db(atCenter), 0.2f)
     }
 
@@ -117,15 +117,23 @@ class BiquadDspTest {
 
     // ---------- Helfer ----------
 
-    private fun freqResponse(coeffs: BiquadCoefficients, freqHz: Float): kotlin.math.Complex {
+    private fun freqResponseMag(coeffs: BiquadCoefficients, freqHz: Float): Double {
         val w = 2.0 * PI * freqHz.toDouble() / sampleRate
-        val ejw = kotlin.math.Complex(cos(w), -sin(w))
-        val ej2w = ejw * ejw
-        val num = coeffs.b0.toDouble() + coeffs.b1.toDouble() * ejw + coeffs.b2.toDouble() * ej2w
-        val den = 1.0 + coeffs.a1.toDouble() * ejw + coeffs.a2.toDouble() * ej2w
-        return num / den
+        val cosW = cos(w)
+        val sinW = sin(w)
+        // ejw = cos(w) - i*sin(w); ej2w = cos(2w) - i*sin(2w)
+        val cos2w = cos(2.0 * w)
+        val sin2w = sin(2.0 * w)
+        // numerator real/imag
+        val numRe = coeffs.b0.toDouble() + coeffs.b1.toDouble() * cosW + coeffs.b2.toDouble() * cos2w
+        val numIm = -coeffs.b1.toDouble() * sinW - coeffs.b2.toDouble() * sin2w
+        // denominator real/imag
+        val denRe = 1.0 + coeffs.a1.toDouble() * cosW + coeffs.a2.toDouble() * cos2w
+        val denIm = -coeffs.a1.toDouble() * sinW - coeffs.a2.toDouble() * sin2w
+        val mag = kotlin.math.sqrt(numRe * numRe + numIm * numIm) / kotlin.math.sqrt(denRe * denRe + denIm * denIm)
+        return mag
     }
 
-    private fun db(c: kotlin.math.Complex): Float =
-        (20.0 * kotlin.math.log10(c.abs())).toFloat()
+    private fun db(mag: Double): Float =
+        (20.0 * kotlin.math.log10(mag)).toFloat()
 }
