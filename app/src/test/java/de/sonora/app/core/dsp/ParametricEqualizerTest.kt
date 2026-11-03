@@ -39,7 +39,7 @@ class ParametricEqualizerTest {
         // Letzte 5000 Proben sind im eingeregelten Zustand
         val tail = input.sliceArray(15000 until 20000)
         val mean = tail.average()
-        assertEquals(0.2f, mean, 0.02f)
+        assertEquals(0.2f, mean.toFloat(), 0.02f)
     }
 
     @Test

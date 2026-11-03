@@ -116,6 +116,7 @@ data class SonoraUiState(
     val particleMode: de.sonora.app.ui.visualizer.ParticleMode = de.sonora.app.ui.visualizer.ParticleMode.CONSTELLATION,
     val soundLabActive: Boolean = false,
     val soundLabSignal: de.sonora.app.audio.SoundLabEngine.SignalType = de.sonora.app.audio.SoundLabEngine.SignalType.WARM_SYNTH_CHORD,
+    val tuning432Enabled: Boolean = false,
     val flangerRateHz: Float = 0.5f,
     val flangerDepth: Float = 0.7f,
     val flangerFeedback: Float = 0.6f,
