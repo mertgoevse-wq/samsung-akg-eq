@@ -346,14 +346,14 @@ class LiteRtInferenceEngineTest {
 
     @Test
     fun ringBuffer_constructorRejectsNonPositiveCapacity() {
-        assertFailsWith<IllegalArgumentException> { RingBuffer(0) }
-        assertFailsWith<IllegalArgumentException> { RingBuffer(-1) }
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) { RingBuffer(0) }
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) { RingBuffer(-1) }
     }
 
     @Test
     fun ringBuffer_readLatestRejectsNegativeCount() {
         val buffer = RingBuffer(1000)
-        assertFailsWith<IllegalArgumentException> { buffer.readLatest(-1) }
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) { buffer.readLatest(-1) }
     }
 
     // --- LiteRtInferenceEngine lifecycle / validation tests (JVM, no model needed) ---
