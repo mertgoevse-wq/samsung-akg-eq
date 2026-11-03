@@ -70,7 +70,7 @@ class StereoCrossfeedDspTest {
     }
 
     @Test
-    fun `kein NaN/Infinity bei Dauerbetrieb`() {
+    fun `kein NaN_Infinity bei Dauerbetrieb`() {
         val cf = StereoCrossfeedDsp(sampleRate)
         cf.setTargetStrength(1.0f)
         val left = FloatArray(44100) { if (it % 3 == 0) 1.0f else 0.2f }
@@ -87,7 +87,7 @@ class StereoCrossfeedDspTest {
     }
 
     @Test
-    fun `NaN/Infinity am Eingang werden wiederhergestellt`() {
+    fun `NaN_Infinity am Eingang werden wiederhergestellt`() {
         val cf = StereoCrossfeedDsp(sampleRate)
         cf.setTargetStrength(0.7f)
         val left = floatArrayOf(Float.NaN, Float.POSITIVE_INFINITY, 0.5f, 0f)

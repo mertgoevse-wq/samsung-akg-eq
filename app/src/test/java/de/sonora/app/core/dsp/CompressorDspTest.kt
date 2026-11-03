@@ -56,7 +56,7 @@ class CompressorDspTest {
     }
 
     @Test
-    fun `Ratio 1:1 verändert das Signal nicht`() {
+    fun `Ratio 1_1 verändert das Signal nicht`() {
         val comp = CompressorDsp(sampleRate)
         comp.setTargetParameters(thresholdDb = -20f, ratio = 1f, kneeDb = 0f, makeupDb = 0f)
         for (i in 0 until 5000) comp.processSample(0f)
@@ -70,7 +70,7 @@ class CompressorDspTest {
     }
 
     @Test
-    fun `kein NaN/Infinity bei Dauerbetrieb und lauten Pegeln`() {
+    fun `kein NaN_Infinity bei Dauerbetrieb und lauten Pegeln`() {
         val comp = CompressorDsp(sampleRate)
         comp.setTargetParameters(thresholdDb = -30f, ratio = 8f, kneeDb = 4f, makeupDb = 6f)
         val buffer = FloatArray(44100) { if (it % 4 == 0) 1.0f else 0.05f }
@@ -83,7 +83,7 @@ class CompressorDspTest {
     }
 
     @Test
-    fun `NaN/Infinity am Eingang werden wiederhergestellt`() {
+    fun `NaN_Infinity am Eingang werden wiederhergestellt`() {
         val comp = CompressorDsp(sampleRate)
         comp.setTargetParameters(thresholdDb = -20f, ratio = 4f, kneeDb = 2f, makeupDb = 0f)
         val buffer = floatArrayOf(Float.NaN, Float.POSITIVE_INFINITY, -Float.POSITIVE_INFINITY, 0.5f, 0f)

@@ -47,7 +47,7 @@ class VoiceFocusDspTest {
     }
 
     @Test
-    fun `kein NaN/Infinity bei Dauerbetrieb`() {
+    fun `kein NaN_Infinity bei Dauerbetrieb`() {
         val vf = VoiceFocusDsp(sampleRate)
         vf.setTargetIntensity(1.0f)
         val buffer = FloatArray(44100) { if (it % 7 == 0) 1.0f else 0.2f }
@@ -60,7 +60,7 @@ class VoiceFocusDspTest {
     }
 
     @Test
-    fun `NaN/Infinity am Eingang werden wiederhergestellt`() {
+    fun `NaN_Infinity am Eingang werden wiederhergestellt`() {
         val vf = VoiceFocusDsp(sampleRate)
         vf.setTargetIntensity(1.0f)
         val buffer = floatArrayOf(Float.NaN, Float.POSITIVE_INFINITY, 0.5f, 0f)

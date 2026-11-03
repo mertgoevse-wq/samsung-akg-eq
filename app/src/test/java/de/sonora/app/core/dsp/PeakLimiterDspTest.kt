@@ -69,7 +69,7 @@ class PeakLimiterDspTest {
     }
 
     @Test
-    fun `kein NaN/Infinity bei Dauerbetrieb`() {
+    fun `kein NaN_Infinity bei Dauerbetrieb`() {
         val lim = PeakLimiterDsp(sampleRate)
         lim.setTargetCeilingDb(-6f)
         val buffer = FloatArray(44100) { if (it % 3 == 0) 1.0f else 0.1f }
@@ -81,7 +81,7 @@ class PeakLimiterDspTest {
     }
 
     @Test
-    fun `NaN/Infinity am Eingang werden wiederhergestellt`() {
+    fun `NaN_Infinity am Eingang werden wiederhergestellt`() {
         val lim = PeakLimiterDsp(sampleRate)
         lim.setTargetCeilingDb(-6f)
         val buffer = floatArrayOf(Float.NaN, Float.POSITIVE_INFINITY, 0.5f, 0f)

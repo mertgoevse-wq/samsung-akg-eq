@@ -81,7 +81,7 @@ class PreampDspTest {
     }
 
     @Test
-    fun `kein NaN/Infinity bei Dauerbetrieb und hohen Pegeln`() {
+    fun `kein NaN_Infinity bei Dauerbetrieb und hohen Pegeln`() {
         val pre = PreampDsp(sampleRate)
         pre.setEnabled(true)
         pre.setTargetGainDb(12f)
@@ -95,7 +95,7 @@ class PreampDspTest {
     }
 
     @Test
-    fun `NaN/Infinity am Eingang werden wiederhergestellt`() {
+    fun `NaN_Infinity am Eingang werden wiederhergestellt`() {
         val pre = PreampDsp(sampleRate)
         pre.setEnabled(true)
         pre.setTargetGainDb(6f)
