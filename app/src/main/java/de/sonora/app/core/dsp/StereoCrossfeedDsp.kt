@@ -76,7 +76,7 @@ class StereoCrossfeedDsp(private var sampleRate: Int = 44100) {
     /** Pufferpaar in-place verarbeiten. */
     fun processStereo(left: FloatArray, right: FloatArray, count: Int = left.size) {
         if (!enabled) return
-        val safeCount = count.coerceIn(0, left.size).also { c -> coerceInt(0, right.size) }
+        val safeCount = count.coerceIn(0, left.size).coerceAtMost(right.size)
         for (i in 0 until safeCount) {
             val out = processPair(left[i], right[i])
             left[i] = out[0]
@@ -165,7 +165,7 @@ class StereoCrossfeedDsp(private var sampleRate: Int = 44100) {
         val safe = if (strength.isNaN() || strength.isInfinite()) 0f else strength.coerceIn(0f, 1f)
         // Bauer-Spezifikation: Verzögerung ~14 samples bei staerke 1.0 (ca. 0.3 ms bei 44.1 kHz)
         val computedDelay = (14f * safe).toInt().coerceIn(0, leftDelay.size - 1)
-        delaySamples = computedDelay.coerceAtLeast(0)
+        delaySamples = computedDelay.coerceAtLeast(1)
 
         // Uebersprechen typischerweise -18 dB bis -8 dB relativer zum Direktkanal
         val crossfeedDb = -18f + (10f * safe)

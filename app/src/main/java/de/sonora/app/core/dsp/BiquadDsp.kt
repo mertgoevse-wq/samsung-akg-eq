@@ -225,6 +225,8 @@ class BiquadStage(
         tb2 = coeffs.b2.toDouble()
         ta1 = coeffs.a1.toDouble()
         ta2 = coeffs.a2.toDouble()
+        v1 = 0.0
+        v2 = 0.0
     }
 
     fun setSampleRate(newSampleRate: Int) {

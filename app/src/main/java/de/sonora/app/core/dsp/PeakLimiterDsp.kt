@@ -107,7 +107,7 @@ class PeakLimiterDsp(private var sampleRate: Int = 44100) {
     /** Stereo-Paar in-place verarbeiten (gemeinsame Huellkurve). */
     fun processStereo(left: FloatArray, right: FloatArray, count: Int = left.size) {
         if (!enabled) return
-        val safeCount = count.coerceIn(0, left.size).also { c -> coerceInt(0, right.size) }
+        val safeCount = count.coerceIn(0, left.size).coerceAtMost(right.size)
         for (i in 0 until safeCount) {
             left[i] = processSample(left[i])
             right[i] = processSample(right[i])

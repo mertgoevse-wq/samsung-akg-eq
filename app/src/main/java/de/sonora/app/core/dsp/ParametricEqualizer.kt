@@ -48,6 +48,7 @@ class ParametricEqualizer(sampleRate: Int = 44100) {
     private var smoothingFactor: Float
 
     init {
+        storedSampleRate = sampleRate.coerceAtLeast(1)
         smoothingFactor = onePoleSmoothing(sampleRate)
         preampSmoothing = onePoleSmoothing(sampleRate)
         rebuildFromBands()
