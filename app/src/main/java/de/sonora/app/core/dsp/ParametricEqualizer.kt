@@ -39,6 +39,7 @@ class ParametricEqualizer(sampleRate: Int = 44100) {
     private val chain = BiquadFilterChain(sampleRate)
     private val bands = mutableListOf<Band>()
 
+    private var storedSampleRate: Int = 44100
     private var targetPreampDb: Float = 0f
     private var currentPreampDb: Float = 0f
     private var preampSmoothing: Float
@@ -159,7 +160,6 @@ class ParametricEqualizer(sampleRate: Int = 44100) {
         return storedSampleRate
     }
 
-    private var storedSampleRate: Int = 44100
 
     private fun onePoleSmoothing(sampleRate: Int): Float {
         val sr = sampleRate.coerceAtLeast(1)

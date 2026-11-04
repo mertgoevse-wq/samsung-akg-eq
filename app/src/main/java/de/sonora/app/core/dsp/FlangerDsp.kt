@@ -93,6 +93,7 @@ class FlangerDsp(
      * Verarbeitet ein einzelnes Audiosample und liefert das geflangerte Ausgangssample.
      */
     fun processSample(input: Float): Float {
+        val safeInput = if (input.isNaN() || input.isInfinite()) 0f else input
         // 1. Parameterglaettung
         currentRateHz += (targetRateHz - currentRateHz) * smoothingFactor
         currentDepth += (targetDepth - currentDepth) * smoothingFactor
@@ -129,12 +130,12 @@ class FlangerDsp(
         val saturatedFeedback = softSaturate(feedbackSample)
 
         // 6. In Verzoegerungspuffer schreiben
-        val toBuffer = input + saturatedFeedback
+        val toBuffer = safeInput + saturatedFeedback
         delayBuffer[writeIndex] = softSaturate(toBuffer)
         writeIndex = (writeIndex + 1) % bufferSize
 
         // 7. Ausgangsmischung (Dry / Wet)
-        return (1f - currentMix) * input + currentMix * delayedSample
+        return (1f - currentMix) * safeInput + currentMix * delayedSample
     }
 
     /**

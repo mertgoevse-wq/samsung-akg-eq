@@ -32,4 +32,3 @@ class NpuAudioQualityEnhancer(private val context: Context) {
 
     fun release() = npu.release()
 }
-EOF

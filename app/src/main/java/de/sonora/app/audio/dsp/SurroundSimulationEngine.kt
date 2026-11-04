@@ -42,4 +42,3 @@ class SurroundSimulationEngine(
 
     fun reset() = hrtf.reset()
 }
-EOF

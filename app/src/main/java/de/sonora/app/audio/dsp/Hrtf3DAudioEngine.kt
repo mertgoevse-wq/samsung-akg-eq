@@ -56,4 +56,3 @@ class Hrtf3DAudioEngine(private val sampleRate: Float = 48000f) {
         delayPos = 0
     }
 }
-EOF

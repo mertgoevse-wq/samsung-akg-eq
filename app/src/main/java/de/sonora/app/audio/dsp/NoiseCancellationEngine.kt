@@ -44,4 +44,3 @@ class NoiseCancellationEngine(private val context: Context) {
 
     fun release() = npu.release()
 }
-EOF
