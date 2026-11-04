@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.google.ai.edge.litert.Accelerator
 import com.google.ai.edge.litert.CompiledModel
+import com.google.ai.edge.litert.TensorBuffer
 
 /**
  * LiteRT 2.3.0 based inference engine implementing real YAMNet audio classification.
@@ -31,6 +32,8 @@ class LiteRtInferenceEngine(
     override val backendName: String = "LiteRT CPU (YAMNet)"
 
     private var model: CompiledModel? = null
+    private var inputBuffers: List<TensorBuffer>? = null
+    private var outputBuffers: List<TensorBuffer>? = null
     private var labels: List<String> = emptyList()
     private var initOk: Boolean = false
     private var execVerified: Boolean = false
@@ -77,12 +80,14 @@ class LiteRtInferenceEngine(
                 null
             )
 
-            // Validate tensor structure — create and immediately close buffers
-            // to verify the model loaded correctly (shape validation happens at inference)
-            val inputBuffers = model!!.createInputBuffers()
-            val outputBuffers = model!!.createOutputBuffers()
+            // Allocate reusable TensorBuffers once during initialization per LiteRT runtime mandate.
+            // Closing and recreating buffers on each inference introduces unnecessary native heap churn.
+            val inBufs = model!!.createInputBuffers()
+            val outBufs = model!!.createOutputBuffers()
 
-            if (inputBuffers.isEmpty() || outputBuffers.isEmpty()) {
+            if (inBufs.isEmpty() || outBufs.isEmpty()) {
+                inBufs.forEach { it.close() }
+                outBufs.forEach { it.close() }
                 failure = "Model has no input or output tensors"
                 cleanupModel()
                 return false
@@ -91,8 +96,8 @@ class LiteRtInferenceEngine(
             inputSize = YAMNET_MIN_INPUT_SAMPLES
             outputSize = labels.size.coerceAtLeast(YAMNET_CLASSES)
 
-            inputBuffers.forEach { it.close() }
-            outputBuffers.forEach { it.close() }
+            inputBuffers = inBufs
+            outputBuffers = outBufs
 
             initOk = true
             failure = null
@@ -113,28 +118,24 @@ class LiteRtInferenceEngine(
     /**
      * Performs a warm-up inference with silence to initialize DSP accelerators,
      * thread pools, and verify that the model produces valid output.
+     * Reuses the pre-allocated input and output TensorBuffers.
      * This avoids timing penalties on the first real inference call.
      */
     private fun warmUp() {
         val localModel = model ?: return
+        val inBufs = inputBuffers ?: return
+        val outBufs = outputBuffers ?: return
         try {
-            val inputBuffers = localModel.createInputBuffers()
-            val outputBuffers = localModel.createOutputBuffers()
-            if (inputBuffers.isEmpty() || outputBuffers.isEmpty()) return
-
             // Use silence (zeros) as warm-up input — YAMNet handles this gracefully
             val silence = FloatArray(YAMNET_MIN_INPUT_SAMPLES) { 0f }
-            inputBuffers[0].writeFloat(silence)
-            localModel.run(inputBuffers, outputBuffers)
+            inBufs[0].writeFloat(silence)
+            localModel.run(inBufs, outBufs)
 
             // Verify output is valid (not all NaN/Infinity)
-            val output = outputBuffers[0].readFloat()
+            val output = outBufs[0].readFloat()
             if (output.isNotEmpty() && output.all { !it.isNaN() && !it.isInfinite() }) {
                 execVerified = true
             }
-
-            inputBuffers.forEach { it.close() }
-            outputBuffers.forEach { it.close() }
         } catch (e: Exception) {
             Log.w(TAG, "Warm-up inference failed: ${e.message}")
         }
@@ -203,23 +204,17 @@ class LiteRtInferenceEngine(
         }
 
         val localLabels = this.labels
+        val inBufs = inputBuffers ?: throw IllegalStateException("Input buffers not initialized: ${failure ?: "unknown"}")
+        val outBufs = outputBuffers ?: throw IllegalStateException("Output buffers not initialized: ${failure ?: "unknown"}")
 
         val elapsedNs = kotlin.system.measureNanoTime {
-            val inputBuffers = localModel.createInputBuffers()
-            val outputBuffers = localModel.createOutputBuffers()
+            inBufs[0].writeFloat(inputData)
+            localModel.run(inBufs, outBufs)
 
-            try {
-                inputBuffers[0].writeFloat(inputData)
-                localModel.run(inputBuffers, outputBuffers)
-
-                // Read output before closing buffers
-                val output = outputBuffers[0].readFloat()
-                lastOutput = output.copyOf()
-                lastLabels = localLabels
-            } finally {
-                inputBuffers.forEach { it.close() }
-                outputBuffers.forEach { it.close() }
-            }
+            // Read output together with model.run to measure full synchronous execution
+            val output = outBufs[0].readFloat()
+            lastOutput = output.copyOf()
+            lastLabels = localLabels
         }
 
         execVerified = true
@@ -338,6 +333,68 @@ class LiteRtInferenceEngine(
         return result
     }
 
+    /**
+     * NPU backend verification. Attempts NPU delegate initialization (LiteRT Accelerator.NPU
+     * over Android NNAPI) and runs a real inference to confirm execution. Reports honest status:
+     * executionVerified is true ONLY after a successful inference run on NPU.
+     *
+     * On Samsung Galaxy A56 (Exynos 1580) the NPU is accessible via NNAPI. LiteRT 2.3.0
+     * exposes it through CompiledModel.Options(Accelerator.NPU). If the device or driver
+     * does not support NPU delegation, this falls back gracefully with supported=false.
+     */
+    fun initializeNpu(): NpuBackendResult {
+        val result = NpuBackendResult()
+        var npuModel: CompiledModel? = null
+        try {
+            val assetManager = context.assets
+            npuModel = CompiledModel.create(
+                assetManager,
+                modelAssetName,
+                CompiledModel.Options(Accelerator.NPU),
+                null
+            )
+            result.supported = true
+            result.initializationSucceeded = true
+
+            // MUST run actual inference to verify NPU execution — not just model creation.
+            val inputBuffers = npuModel.createInputBuffers()
+            val outputBuffers = npuModel.createOutputBuffers()
+            if (inputBuffers.isEmpty() || outputBuffers.isEmpty()) {
+                result.executionVerified = false
+                result.failureReason = "NPU model created but has no I/O tensors"
+                result.cpuFallback = true
+                return result
+            }
+            val inputData = FloatArray(YAMNET_MIN_INPUT_SAMPLES) { 0f }
+            inputBuffers[0].writeFloat(inputData)
+            npuModel.run(inputBuffers, outputBuffers)
+
+            val output = outputBuffers[0].readFloat()
+            val valid = output.isNotEmpty() && output.all { !it.isNaN() && !it.isInfinite() }
+            inputBuffers.forEach { it.close() }
+            outputBuffers.forEach { it.close() }
+
+            if (valid) {
+                result.executionVerified = true
+                result.failureReason = null
+            } else {
+                result.executionVerified = false
+                result.failureReason = "NPU inference produced invalid output (NaN/Infinity/empty)"
+                result.cpuFallback = true
+            }
+        } catch (e: Exception) {
+            result.supported = false
+            result.initializationSucceeded = false
+            result.executionVerified = false
+            result.failureReason = "NPU initialization/inference failed: ${e.message}"
+            Log.w(TAG, "NPU delegate not available: ${e.message}")
+            result.cpuFallback = true
+        } finally {
+            try { npuModel?.close() } catch (_: Exception) {}
+        }
+        return result
+    }
+
     override fun release() {
         cleanupModel()
         initOk = false
@@ -345,6 +402,20 @@ class LiteRtInferenceEngine(
     }
 
     private fun cleanupModel() {
+        try {
+            inputBuffers?.forEach { it.close() }
+        } catch (_: Exception) {
+            // Best-effort cleanup
+        }
+        inputBuffers = null
+
+        try {
+            outputBuffers?.forEach { it.close() }
+        } catch (_: Exception) {
+            // Best-effort cleanup
+        }
+        outputBuffers = null
+
         try {
             model?.close()
         } catch (_: Exception) {
@@ -368,6 +439,15 @@ class LiteRtInferenceEngine(
 
     /** GPU backend verification result. */
     data class GpuBackendResult(
+        var supported: Boolean = false,
+        var initializationSucceeded: Boolean = false,
+        var executionVerified: Boolean = false,
+        var failureReason: String? = null,
+        var cpuFallback: Boolean = false
+    )
+
+    /** NPU backend verification result. */
+    data class NpuBackendResult(
         var supported: Boolean = false,
         var initializationSucceeded: Boolean = false,
         var executionVerified: Boolean = false,

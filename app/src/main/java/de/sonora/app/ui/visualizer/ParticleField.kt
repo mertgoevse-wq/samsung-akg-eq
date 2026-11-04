@@ -102,6 +102,8 @@ private class Particle(
  * @param onModeChange Callback beim Moduswechsel
  * @param xyControlEnabled Ob die Touch-Bewegung den internen DSP-Flanger steuern soll
  * @param onXyChange Callback mit (xNorm 0..1, yNorm 0..1, isTouching Boolean)
+ * @param isSyntheticSignal Ob das angezeigte Signal synthetisch (Sound Lab/Testsignal) statt
+ *                          einer echten Live-Eingabe ist. Wird visuell kenntlich gemacht.
  */
 @Composable
 fun ParticleField(
@@ -111,7 +113,8 @@ fun ParticleField(
     activeMode: ParticleMode = ParticleMode.CONSTELLATION,
     onModeChange: (ParticleMode) -> Unit = {},
     xyControlEnabled: Boolean = true,
-    onXyChange: (xNorm: Float, yNorm: Float, isTouching: Boolean) -> Unit = { _, _, _ -> }
+    onXyChange: (xNorm: Float, yNorm: Float, isTouching: Boolean) -> Unit = { _, _, _ -> },
+    isSyntheticSignal: Boolean = false
 ) {
     val particleCount = 120
     val particles = remember {
@@ -442,13 +445,19 @@ fun ParticleField(
                     modifier = Modifier
                         .size(6.dp)
                         .clip(CircleShape)
-                        .background(if (isAudioActive) Copper else Muted.copy(alpha = 0.4f))
+                        .background(
+                            if (isSyntheticSignal) Warning.copy(alpha = 0.8f)
+                            else if (isAudioActive) Copper
+                            else Muted.copy(alpha = 0.4f)
+                        )
                 )
                 Text(
-                    text = if (isAudioActive) "Echtzeit-FFT" else "Bereit",
+                    text = if (isSyntheticSignal) "Testsignal (Sound Lab)"
+                    else if (isAudioActive) "Echtzeit-FFT"
+                    else "Bereit",
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontSize = 10.sp,
-                        color = if (isAudioActive) CopperSoft else Muted
+                        color = if (isSyntheticSignal) Warning else if (isAudioActive) CopperSoft else Muted
                     )
                 )
             }

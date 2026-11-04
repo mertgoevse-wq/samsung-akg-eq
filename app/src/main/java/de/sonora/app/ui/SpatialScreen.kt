@@ -117,7 +117,8 @@ internal fun SpatialScreenContent(
                 title = mode.title,
                 description = mode.description,
                 selected = state.spatialMode == mode,
-                onClick = { onModeSelected(mode) }
+                onClick = { onModeSelected(mode) },
+                dolbyEquivalent = mode.dolbyEquivalent
             )
         }
 
@@ -218,7 +219,8 @@ private fun SpatialChoice(
     title: String,
     description: String,
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    dolbyEquivalent: String? = null
 ) {
     Surface(
         color = if (selected) SelectedCardSurface else Surface1,
@@ -240,6 +242,10 @@ private fun SpatialChoice(
                 Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = Paper)
                 Spacer(Modifier.height(2.dp))
                 Text(description, style = MaterialTheme.typography.bodySmall, color = Muted)
+                dolbyEquivalent?.let { eq ->
+                    Spacer(Modifier.height(2.dp))
+                    Text("≈ $eq", style = MaterialTheme.typography.labelSmall, color = Copper)
+                }
             }
             RadioButton(
                 selected = selected,

@@ -84,6 +84,42 @@ class HardwareCapabilityRepository(private val context: Context? = null) {
     }
 
     /**
+     * Verifies NPU delegate availability at runtime using LiteRT (Accelerator.NPU over NNAPI).
+     * Returns updated NPU capability based on actual hardware test. Execution is marked verified
+     * only after a successful inference run on the NPU.
+     */
+    fun verifyNpu(): BackendCapability {
+        if (context == null) {
+            return npu()
+        }
+
+        try {
+            val engine = LiteRtInferenceEngine(context)
+            val result = engine.initializeNpu()
+            return BackendCapability(
+                name = "NPU (Exynos AI LiteCore / NNAPI)",
+                supported = result.supported,
+                initializationSucceeded = result.initializationSucceeded,
+                executionVerified = result.executionVerified,
+                failureReason = if (result.failureReason != null && result.cpuFallback) {
+                    "${result.failureReason} — CPU-Fallback aktiv"
+                } else {
+                    result.failureReason
+                },
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "NPU verification failed", e)
+            return BackendCapability(
+                name = "NPU (Exynos AI LiteCore / NNAPI)",
+                supported = false,
+                initializationSucceeded = false,
+                executionVerified = false,
+                failureReason = "NPU-Verifikation fehlgeschlagen: ${e.message}",
+            )
+        }
+    }
+
+    /**
      * Documents NPU availability on Exynos 1580.
      * The Exynos 1580 includes an integrated NPU with up to 14.7 TOPS.
      * It is accessible via Android NNAPI and the LiteRT NPU delegate (Accelerator.NPU).

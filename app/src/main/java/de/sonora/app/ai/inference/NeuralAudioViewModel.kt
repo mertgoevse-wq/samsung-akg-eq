@@ -72,7 +72,7 @@ class NeuralAudioViewModel(application: Application) : AndroidViewModel(applicat
 
     /** Model and backend status info for diagnostics. */
     data class HardwareCapabilities(
-        val cpu: BackendCapabilityInfo = BackendCapabilityInfo("CPU", true, true, true),
+        val cpu: BackendCapabilityInfo = BackendCapabilityInfo("CPU", true, false, false),
         val gpu: BackendCapabilityInfo = BackendCapabilityInfo("GPU (LiteRT GPU)", false, false, false),
         val npu: BackendCapabilityInfo = BackendCapabilityInfo("NPU (Exynos AI)", false, false, false)
     )
@@ -115,11 +115,17 @@ class NeuralAudioViewModel(application: Application) : AndroidViewModel(applicat
      */
     private fun initializeModel() {
         inferenceScope.launch {
+            // Hardware-Capabilities ehrlich aus dem Repository beziehen.
+            // CPU ist strukturell verfügbar; NPU wird als unbestätigt gemeldet.
+            val cpuCap = hardwareRepo.cpu()
+            val npuCap = hardwareRepo.npu()
+
             val success = withContext(Dispatchers.IO) {
                 engine.initialize()
             }
 
             if (success) {
+                val engineStatus = engine.backendStatus()
                 _modelInfo = ModelInfo(
                     loaded = true,
                     sha256 = engine.modelSha256()?.take(16) ?: "unbekannt",
@@ -127,16 +133,48 @@ class NeuralAudioViewModel(application: Application) : AndroidViewModel(applicat
                     inputSize = YAMNET_MIN_INPUT_SAMPLES,
                     outputSize = YAMNET_CLASSES
                 )
+                // CPU gilt erst als produktiv, wenn der Warm-Up-Lauf eine echte
+                // Inferenz erfolgreich absolviert hat (engineStatus.executionVerified).
                 _backendCapabilities = _backendCapabilities.copy(
-                    cpu = BackendCapabilityInfo("CPU", true, true, true)
+                    cpu = BackendCapabilityInfo(
+                        name = "LiteRT CPU (YAMNet)",
+                        supported = cpuCap.supported,
+                        initializationSucceeded = engineStatus.initializationSucceeded,
+                        executionVerified = engineStatus.executionVerified
+                    ),
+                    npu = BackendCapabilityInfo(
+                        name = npuCap.name,
+                        supported = npuCap.supported,
+                        initializationSucceeded = npuCap.initializationSucceeded,
+                        executionVerified = npuCap.executionVerified
+                    )
                 )
+                if (!engineStatus.executionVerified) {
+                    _statusMessage =
+                        "Modell geladen, aber CPU-Inferenz konnte nicht verifiziert werden: ${engineStatus.failureReason ?: "unbekannt"}"
+                }
             } else {
                 _modelInfo = ModelInfo(loaded = false, sha256 = "")
                 _statusMessage = "Modell konnte nicht initialisiert werden"
+                _backendCapabilities = _backendCapabilities.copy(
+                    cpu = BackendCapabilityInfo(
+                        name = "LiteRT CPU (YAMNet)",
+                        supported = cpuCap.supported,
+                        initializationSucceeded = false,
+                        executionVerified = false
+                    ),
+                    npu = BackendCapabilityInfo(
+                        name = npuCap.name,
+                        supported = npuCap.supported,
+                        initializationSucceeded = npuCap.initializationSucceeded,
+                        executionVerified = npuCap.executionVerified
+                    )
+                )
             }
 
-            // Verify GPU (runs actual inference)
+            // Verify GPU and NPU (runs actual inference — executionVerified only after a successful run)
             verifyGpuBackend()
+            verifyNpuBackend()
         }
     }
 
@@ -158,6 +196,28 @@ class NeuralAudioViewModel(application: Application) : AndroidViewModel(applicat
                 )
             } catch (e: Exception) {
                 Log.w("NeuralAudioViewModel", "GPU verification failed: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * NPU verification runs an actual inference to confirm execution.
+     * Only when executionVerified is true does NPU count as operational.
+     */
+    private fun verifyNpuBackend() {
+        inferenceScope.launch(Dispatchers.IO) {
+            try {
+                val npuResult = engine.initializeNpu()
+                _backendCapabilities = _backendCapabilities.copy(
+                    npu = BackendCapabilityInfo(
+                        name = "NPU (Exynos AI LiteCore / NNAPI)",
+                        supported = npuResult.supported,
+                        initializationSucceeded = npuResult.initializationSucceeded,
+                        executionVerified = npuResult.executionVerified
+                    )
+                )
+            } catch (e: Exception) {
+                Log.w("NeuralAudioViewModel", "NPU verification failed: ${e.message}")
             }
         }
     }

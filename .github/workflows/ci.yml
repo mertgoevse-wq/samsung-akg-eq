@@ -11,12 +11,23 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
-  test-and-build:
+  build-and-test:
     name: Build & Verify Sonora Android App
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - flavor: standard
+            flavor_title: Standard
+          - flavor: parallel
+            flavor_title: Parallel
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -37,24 +48,62 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Run Unit & DSP Tests
-        run: ./gradlew testDebugUnitTest --stacktrace
+      - name: List available Gradle tasks
+        run: ./gradlew tasks --all --stacktrace
 
-      - name: Assemble Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Run Unit & DSP Tests (${{ matrix.flavor }})
+        run: ./gradlew test${{ matrix.flavor_title }}DebugUnitTest --stacktrace
 
-      - name: Upload Test Report
+      - name: Run Android Lint (${{ matrix.flavor }})
+        run: ./gradlew lint${{ matrix.flavor_title }}Debug --stacktrace
+
+      - name: Assemble Debug APK (${{ matrix.flavor }})
+        run: ./gradlew assemble${{ matrix.flavor_title }}Debug --stacktrace
+
+      - name: Compute APK SHA-256 checksums
+        id: checksums
+        run: |
+          APK_DIR=app/build/outputs/apk/${{ matrix.flavor }}/debug
+          APK_PATH=$(ls "$APK_DIR"/*.apk | head -1)
+          APK_NAME=$(basename "$APK_PATH")
+          echo "filename=$APK_NAME" >> $GITHUB_OUTPUT
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+          sha256sum "$APK_PATH" > "$APK_PATH.sha256"
+          echo "checksum=$(sha256sum "$APK_PATH" | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+
+      - name: Verify APK exists and is non-empty
+        run: |
+          test -s ${{ steps.checksums.outputs.apk_path }} || { echo "APK missing or empty"; exit 1; }
+          echo "APK OK: ${{ steps.checksums.outputs.filename }}"
+
+      - name: Upload Test Report (${{ matrix.flavor }})
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: unit-test-reports
-          path: app/build/reports/tests/testDebugUnitTest/
+          name: unit-test-reports-${{ matrix.flavor }}
+          path: app/build/reports/tests/test${{ matrix.flavor_title }}DebugUnitTest/
           retention-days: 14
 
-      - name: Upload Debug APK
+      - name: Upload Lint Report (${{ matrix.flavor }})
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-reports-${{ matrix.flavor }}
+          path: app/build/reports/lint-results-${{ matrix.flavor }}.html
+          retention-days: 14
+
+      - name: Upload Debug APK (${{ matrix.flavor }})
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: sonora-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: sonora-${{ matrix.flavor }}-debug-apk
+          path: app/build/outputs/apk/${{ matrix.flavor }}/debug/*.apk
+          retention-days: 30
+
+      - name: Upload SHA-256 Checksum File (${{ matrix.flavor }})
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonora-checksums-${{ matrix.flavor }}
+          path: ${{ steps.checksums.outputs.apk_path }}.sha256
           retention-days: 30

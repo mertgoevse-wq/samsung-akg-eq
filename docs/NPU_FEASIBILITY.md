@@ -13,7 +13,7 @@
 ## NPU-Analyse
 
 ### Exynos 1580 — NPU vorhanden
-Der Exynos 1580 verfügt über eine integrierte NPU mit einer Spitzenleistung von bis zu **14,7 TOPS** laut Samsung-Dokumentation. Die NPU ist über die Android NNAPI zugänglich.
+Der Exynos 1580 verfügt über eine integrierte NPU (Exynos AI) mit einer Spitzenleistung von bis zu **14,7 TOPS** laut Samsung-Dokumentation. Die NPU ist über die Android NNAPI und die Samsung ENN HAL (vendor.samsung_slsi.hardware.enn_aidl) zugänglich. Bootloader ist gesperrt (ro.boot.flash.locked=1) — daher nur User-Space-Zugriff via NNAPI/LiteRT, kein Kernel-Flashing.
 
 Vergleich mit NPU-fähigen Exynos-Chipsätzen:
 
@@ -21,7 +21,7 @@ Vergleich mit NPU-fähigen Exynos-Chipsätzen:
 |-----|-----|--------------|---------------------------|
 | Exynos 2500 | Ja (Exynos AI) | bis zu 35 TOPS | Ja (über Samsung NNAPI / NPU SDK) |
 | Exynos 2600 | Ja (Exynos AI) | bis zu 70 TOPS | Ja (über Samsung NNAPI / NPU SDK) |
-| **Exynos 1580** | **Nein** | **0 TOPS** | **Nicht zutreffend** |
+| **Exynos 1580** | **Ja (Exynos AI)** | **bis zu 14.7 TOPS** | **Ja (NNAPI / ENN HAL)** |
 
 Quelle: https://www.samsung.com/semiconductor/minisite/semi7foundry/blog/exynos-1580-mobile-processor-for-galaxy-a56-series/
 

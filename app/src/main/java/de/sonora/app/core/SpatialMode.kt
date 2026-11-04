@@ -11,17 +11,18 @@ import androidx.compose.runtime.Immutable
 enum class SpatialMode(
     val id: String,
     val title: String,
-    val description: String
+    val description: String,
+    val dolbyEquivalent: String? = null
 ) {
-    KINO_WEIT("kino", "Kino-Weit", "Breite Klangwand mit Anteilen von hinten."),
-    OBJEKT_RAUM("objekt", "Objekt-Raum", "Höhen und einzelne Objekte stehen im Raum."),
-    RAUM_21_1("raum21", "Raum 21.1", "Viele virtuelle Lautsprecher, weit und tief."),
-    KOPF_3D("kopf3d", "Kopf-3D", "Der Klang umschließt deinen Kopf."),
-    LIVE_SAAL("saal", "Live-Saal", "Natürlicher Raumhall wie in einem Saal."),
-    STUDIO_TROCKEN("studio", "Studio-Trocken", "Neutral und direkt, ohne Hall."),
-    SPRACH_FOKUS("sprache", "Sprach-Fokus", "Dialog steht klar vorn."),
-    NACHT("nacht", "Nacht", "Leise, aber verständlich."),
-    BREIT_WARM("breit", "Breit & Warm", "Entspannt, weich, etwas wärmer.")
+    KINO_WEIT("kino", "Kino-Weit", "Breite Klangwand mit Anteilen von hinten.", "Dolby Surround"),
+    OBJEKT_RAUM("objekt", "Objekt-Raum", "Höhen und einzelne Objekte stehen im Raum.", "Dolby Atmos"),
+    RAUM_21_1("raum21", "Raum 21.1", "Viele virtuelle Lautsprecher, weit und tief.", "DTS:X / Auro-3D"),
+    KOPF_3D("kopf3d", "Kopf-3D", "Der Klang umschließt deinen Kopf.", "Binaural 3D"),
+    LIVE_SAAL("saal", "Live-Saal", "Natürlicher Raumhall wie in einem Saal.", "Concert Hall"),
+    STUDIO_TROCKEN("studio", "Studio-Trocken", "Neutral und direkt, ohne Hall.", "Studio Reference"),
+    SPRACH_FOKUS("sprache", "Sprach-Fokus", "Dialog steht klar vorn.", "Dialogue Enhancement"),
+    NACHT("nacht", "Nacht", "Leise, aber verständlich.", "Night Mode (Dolby)"),
+    BREIT_WARM("breit", "Breit & Warm", "Entspannt, weich, etwas wärmer.", "Wide Stereo")
 }
 
 enum class DspStageState {
